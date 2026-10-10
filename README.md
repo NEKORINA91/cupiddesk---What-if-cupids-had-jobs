@@ -1,6 +1,6 @@
 # Cupiddesk
 
-A fictional parody game where relationship problems arrive as LoveNotes and a Cupid has to calm everyone down before their Heartbreak Timer runs out.
+A fictional parody game. You switch on a pretend PC, open the Cupiddesk app, and handle relationship problems that arrive as LoveNotes before their Heartbreak Timers run out.
 
 > **Parody notice:** Cupiddesk is a fictional parody game created for entertainment and humor. Its characters, scenarios, conversations, and resolutions are fictional and are not intended to provide real relationship, psychological, legal, medical, or professional advice. Do not use the game's fictional responses as guidance for real-world decisions. Cupiddesk is not affiliated with, endorsed by, or connected to any software company or product. It only borrows the general idea of a service desk workflow for comedy.
 
@@ -13,36 +13,41 @@ A fictional parody game where relationship problems arrive as LoveNotes and a Cu
 
 No install or build step. Everything is saved only in your browser (localStorage). Nothing is sent anywhere.
 
-## How to play
+## What's on the desktop
 
-1. Pick a LoveNote from the list (the fictional "Cupid OS" desktop).
-2. Press **Pick up LoveNote**. The Heartbreak Timer starts.
-3. Send quick replies to raise the person's **Calm**. Some replies are risky and can make things worse.
-4. When Calm reaches 70%, press **Mend the heart**.
-5. If the timer runs out, the heart breaks.
+- **Cupiddesk**: opens the app window. Create a nickname and choose **Cupid** or **customer** (you can switch roles any time).
+  - *Cupid*: pick up a LoveNote, start the Heartbreak Timer, send quick replies to raise Calm, then **Mend the heart**, or **Escalate to Cupid L2** (automated, finishes by itself).
+  - *Customer*: send your own silly LoveNote with a pigeon, then chat with the bot Cupid who picks it up.
+- **Heart status**: a pie chart window that pops up on the side for Cupids (New, LovePending, LoveEscalated).
+- **Browser**: a pretend search page with silly headlines.
+- **Mailbox**: story mails pop up over time ("Senior Cupid" and others).
+- **Trash**: just for fun.
+- **About**: disclaimer, AI disclosure, and a button to clear game data.
 
-You can also open the **Send a LoveNote** tab, write your own silly (fictional) problem, and a pigeon delivers it to the desk.
+Windows can be dragged by their title bars.
 
-## Built so far (build order steps 1 to 8)
+## Writing your own story mails
 
-1. Fictional computer and browser
-2. Cupiddesk app
-3. LoveNote submission page
-4. LoveNote generation and arrival
-5. LoveNote list
-6. LoveNote selection
-7. Chat-style conversation
-8. Heartbreak Timer
+Open `js/data.js` and find `MAILS`. Replace the `[PLACEHOLDER]` text with your own plot. Each mail has:
 
-## Next (steps 9 to 15)
+- `after`: seconds from the start of a play session before it pops up
+- `from`, `subject`, `body`: what the player reads
 
-Cupid L1 behaviour, automated Cupid L2 escalation, LovePending and LoveEscalated states, pie-chart status display, pigeon delivery visuals, optional configuration or service elements, story events and more comedy.
+Add as many as you like. Each mail is delivered only once per save.
+
+## Tweak the game
+
+All in `js/data.js`: LoveNote scenarios, quick replies and how they affect Calm, timer length, L2 delay, bot lines, headlines, trash items.
 
 ## Files
 
 - `index.html` page shell
 - `css/styles.css` pink theme (dark mode supported)
-- `js/data.js` LoveNote scenarios, replies, timer settings, disclaimer text
+- `js/data.js` all the writing and settings
 - `js/game.js` game logic and saved state
-- `js/ui.js` screens and interactions
+- `js/ui.js` desktop, windows and screens
 - `CREDITS.md` credits and licenses
+
+## Next ideas
+
+Pigeon delivery visuals, story events tied to mail, more scenarios, sound, configuration/service elements only if they add comedy.
