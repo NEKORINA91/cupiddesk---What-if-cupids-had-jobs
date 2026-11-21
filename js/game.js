@@ -8,6 +8,7 @@ function freshGame() {
     shift: null,               // today's progress: status "intro" | "running" | "report" | "ending"
     notes: [], counter: NUMBER_START,
     mails: [],                 // NoFlight inbox
+    sent: [],                  // NoFlight sent folder
     queue: [],                 // mails waiting to arrive { at, mail, ending }
     history: [],               // past day reports
     clock: 0,                  // game time in ms. Only moves while a day is running and not paused
@@ -30,6 +31,23 @@ function loadGame() {
 let game = loadGame();
 function save() { try { localStorage.setItem(KEY, JSON.stringify(game)); } catch (e) { /* storage blocked */ } }
 function wipeGame() { try { localStorage.removeItem(KEY); } catch (e) {} game = freshGame(); }
+
+/* ---------- Trophies: a separate save that survives new games ---------- */
+const TKEY = "cupiddesk_trophies";
+function freshTrophies() { return { got: {}, found: {}, articles: {}, restricted: 0 }; }
+let trophies = (() => { try { return Object.assign(freshTrophies(), JSON.parse(localStorage.getItem(TKEY) || "{}")); } catch (e) { return freshTrophies(); } })();
+function saveTrophies() { try { localStorage.setItem(TKEY, JSON.stringify(trophies)); } catch (e) {} }
+function wipeEverything() { try { localStorage.removeItem(TKEY); } catch (e) {} trophies = freshTrophies(); wipeGame(); }
+function award(id) {
+  if (trophies.got[id]) return;
+  const t = TROPHIES.find((x) => x.id === id); if (!t) return;
+  trophies.got[id] = new Date().toLocaleDateString();
+  saveTrophies();
+  emit("trophy", t);
+  const endings = Object.keys(ENDINGS).map((k) => "end_" + k);
+  if (id !== "all_endings" && endings.every((e) => trophies.got[e])) award("all_endings");
+}
+function endingsFound() { return Object.keys(ENDINGS).filter((k) => trophies.got["end_" + k]).length; }
 
 const rnd = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -89,9 +107,13 @@ function endShift() {
     rows: shiftNotes().map((n) => ({ num: n.num, title: n.title, res: n.resolution, points: n.points }))
   };
   game.history.push({ title: d.title, points: s.points, grade });
+  if (grade === "S") award("perfect_day");
+  if (isLastDay()) award("full_week");
   emit("shiftEnd", s.report);
   save();
 }
+
+function clockOut() { if (game.shift && game.shift.status === "timeover") endShift(); }
 
 function nextShift() {
   if (isLastDay()) { triggerEnding(computeEnding()); return; }
@@ -111,6 +133,7 @@ function triggerEnding(key) {
   if (game.shift) game.shift.status = "ending"; else game.shift = { status: "ending" };
   game.paused = false;
   emit("ending", key);
+  award("end_" + key);
   save();
 }
 
@@ -215,11 +238,13 @@ function pigeonChoice(id, choice) {
   else if (choice === "accept") {
     n.chat.push({ who: "person", text: PIGEON_NOTE.acceptAnswer });
     game.story.flags.pigeonContact = true;
+    award("pigeon_pal");
     queueMail(sec(15), { party: "pigeons", kind: "pigeon", from: PARTIES.pigeons.name, subject: PIGEON_NOTE.spyMail.subject, body: PIGEON_NOTE.spyMail.body, replies: PIGEON_NOTE.spyMail.replies });
     finish(n, "pigeonAccepted");
   } else {
     n.chat.push({ who: "person", text: PIGEON_NOTE.refuseAnswer });
     game.story.pigeon.refusals++;
+    if (game.story.pigeon.refusals >= PIGEON_NOTE.attempts.length) award("cold_shoulder");
     finish(n, "pigeonRefused");
   }
   save();
@@ -247,6 +272,8 @@ function finish(n, res, extra) {
   game.shift.points += n.points; game.shift.closed++;
   game.totals.points += n.points;
   if (res === "mended" || res === "l2mended" || res === "fulfilled") game.totals.mended++;
+  if (res === "mended") award("first_mend");
+  if (game.totals.mended >= 25) award("mend_25");
   if (res === "broken") game.totals.broken++;
   if (!RESOLUTION[res].special) emit(n.points >= 0 ? "closed" : "broken", n);
 }
@@ -280,7 +307,7 @@ function close(id, action) {
   } else if (action === "l2") {
     if (n.type === "request" && !n.fulfil) {
       n.calm = Math.max(0, n.calm - 15);
-      n.chat.push({ who: "l2", text: "L2 Fulfilment here. We can't do this one, it's against Cupid policy. Sending it back to you. (Try declining it.)" });
+      n.chat.push({ who: "l2", text: "Psyche Squad here. We can't do this one, it's against Cupid policy. Sending it back to you. (Try declining it.)" });
       game.shift.points += POINTS.triageWrong; game.totals.points += POINTS.triageWrong;
       emit("bad");
     } else if (n.type === "request" || feature("l2")) {
@@ -296,7 +323,8 @@ function close(id, action) {
 /* ---------- NoFlight mail ---------- */
 let mailSeq = 0;
 function deliverMail(m) {
-  const mail = Object.assign({ key: "m" + Date.now().toString(36) + (mailSeq++), read: false, replied: null, fwd: [], day: game.day }, m);
+  const mail = Object.assign({ key: "m" + Date.now().toString(36) + (mailSeq++), read: false, replied: null, fwd: [], day: game.day, time: gameHour(),
+    toAll: m.party === "goddess" && (m.kind === "sus" || m.kind === "normal") && !/^Re:/.test(m.subject) }, m);
   game.mails.push(mail);
   if (m.sets) game.story.flags[m.sets] = true;
   emit("mail", mail);
@@ -304,11 +332,18 @@ function deliverMail(m) {
 }
 function queueMail(delay, mail, ending) { game.queue.push({ at: game.clock + delay, mail, ending: ending || null }); }
 
+function mailReplies(m) { return m.replies && m.replies.length ? m.replies : DEFAULT_REPLIES; }
+function fromAddress(m) { return m.address || (PARTIES[m.party] && PARTIES[m.party].address) || m.from.toLowerCase().replace(/[^a-z]+/g, ".").replace(/^\.|\.$/g, "") + "@cupiddesk.love"; }
+function myAddress() { return (game.cupid ? game.cupid.id.toLowerCase() : "cupid") + "@cupiddesk.love"; }
+function addSent(o) { game.sent.push(Object.assign({ key: "s" + Date.now().toString(36) + (mailSeq++), day: game.day, time: gameHour() }, o)); }
+
 function replyMail(key, idx) {
   const m = game.mails.find((x) => x.key === key);
-  if (!m || m.replied != null || !m.replies || !m.replies[idx]) return;
+  const list = m && mailReplies(m);
+  if (!m || m.replied != null || !list[idx]) return;
   m.replied = idx;
-  const a = m.replies[idx].answer;
+  addSent({ to: m.from, toAddr: fromAddress(m), subject: "Re: " + m.subject, body: list[idx].text, quote: m });
+  const a = list[idx].answer;
   if (a) queueMail(sec(12), { party: m.party, kind: m.kind === "sus" ? "normal" : m.kind, from: m.from, subject: a.subject, body: a.body });
   save();
 }
@@ -324,19 +359,26 @@ function forwardMail(key, party) {
   const m = game.mails.find((x) => x.key === key);
   if (!m || !canForwardTo(party) || m.fwd.includes(party) || game.ending) return "nope";
   m.fwd.push(party);
+  addSent({ to: PARTIES[party].name, toAddr: PARTIES[party].address, subject: "Fwd: " + m.subject, body: "", quote: m, forward: true });
   const r = FORWARD[party][m.kind] || FORWARD[party].random;
   const st = game.story.stats;
   st[r.effect]++;
+  if (r.effect === "evidence") award("first_evidence");
+  if (r.effect === "loyal") award("snitch");
   const from = PARTIES[party].name, subject = "Re: Fwd: " + m.subject;
   let ending = null;
   if (r.effect === "annoyAngel" && st.annoyAngel >= LIMITS.angelSpam) ending = "spamAngel";
   if (r.effect === "annoyGoddess" && st.annoyGoddess >= LIMITS.goddessSpam) ending = "spamGoddess";
-  queueMail(sec(10), { party, kind: party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon", from, subject, body: r.body }, ending);
-  // one warning just before the limit
-  const near = (r.effect === "annoyAngel" && st.annoyAngel === LIMITS.angelSpam - 1) || (r.effect === "annoyGoddess" && st.annoyGoddess === LIMITS.goddessSpam - 1) || (r.effect === "frustrate" && st.frustrate === 3);
-  if (near && !game.story.warned[r.effect]) {
-    game.story.warned[r.effect] = true;
-    queueMail(sec(20), { party, kind: party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon", from, subject: "Warning", body: WARNINGS[r.effect] });
+  const kind = party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon";
+  queueMail(sec(ending ? 4 : 10), { party, kind, from, subject, body: r.body }, ending);
+  // a warning, then a FINAL WARNING, before the limit
+  const limit = r.effect === "annoyAngel" ? LIMITS.angelSpam : r.effect === "annoyGoddess" ? LIMITS.goddessSpam : r.effect === "frustrate" ? 5 : 0;
+  if (limit && WARNINGS[r.effect]) {
+    const w = st[r.effect] === limit - 1 ? "final" : st[r.effect] === limit - 2 ? "first" : null;
+    if (w && !game.story.warned[r.effect + w]) {
+      game.story.warned[r.effect + w] = true;
+      queueMail(sec(16), { party, kind, from, subject: w === "final" ? "⚠️ FINAL WARNING" : "Warning", body: WARNINGS[r.effect][w] });
+    }
   }
   save();
   return "ok";
@@ -381,7 +423,7 @@ function advance(delta) {
     }
   });
 
-  if (dayTime() >= dayLength()) { endShift(); changed = true; }
+  if (dayTime() >= dayLength()) { s.status = "timeover"; emit("timeover"); changed = true; }
   if (changed) save();
   else if (Math.random() < 0.1) save(); // keep the clock saved now and then
   return changed;
@@ -395,6 +437,7 @@ function payToWork() {
   game.coins -= PAYTOWORK_COST;
   const job = pick(PAYTOWORK_JOBS);
   game.jobs.push(job); save();
+  award("paytowork");
   return job;
 }
 

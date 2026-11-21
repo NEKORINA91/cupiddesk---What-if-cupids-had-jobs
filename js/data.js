@@ -63,7 +63,7 @@ const INCIDENTS = [
 ];
 
 /* ---------- request templates ----------
-   fulfil: true  = a fair request, send it to Cupid L2 Fulfilment.
+   fulfil: true  = a fair request, send it to the Psyche Squad to fulfil.
    fulfil: false = Cupids can't do this, so Decline it (reason is shown when declined). */
 const REQUESTS = [
   { cat: "food", sev: 3, fulfil: true, title: "Cake delivery", text: "Can a Cupid deliver a cake to {p}? It's a sorry cake.", detail: "Chocolate, please. With 'sorry about the socks' written on it in icing." },
@@ -103,8 +103,8 @@ const CALM_TO_PATCH = 45;  // temporary fix
 const RESOLUTION = {
   mended:    { label: "Heart mended",          e: "💘", stars: 5 },
   patched:   { label: "Patched with snacks",   e: "🩹", stars: 3 },
-  l2mended:  { label: "Mended by Cupid L2",    e: "🏹", stars: 4 },
-  fulfilled: { label: "Fulfilled by Cupid L2", e: "🎁", stars: 5 },
+  l2mended:  { label: "Mended by the Psyche Squad", e: "🦋", stars: 4 },
+  fulfilled: { label: "Fulfilled by the Psyche Squad", e: "🎁", stars: 5 },
   declined:  { label: "Politely declined",     e: "🚫", stars: 4 },
   wrongdecline: { label: "Declined (oops)",    e: "😬", stars: 1 },
   broken:    { label: "Heartbroken",           e: "💔", stars: 1 },
@@ -114,14 +114,18 @@ const RESOLUTION = {
 };
 const POINTS = { nightshift: 0, pigeonAccepted: 0, pigeonRefused: 0, mended: 100, patched: 50, l2mended: 45, fulfilled: 80, declined: 70, wrongdecline: -40, broken: -50, triageRight: 15, triageWrong: -10, perSecondLeft: 1 };
 
-/* ---------- automated Cupid L2 ---------- */
+/* ---------- the Psyche Squad (automated backup team) ----------
+   Named after Psyche, who (in the old myth) married Cupid and survived impossible tasks.
+   In the code this team is still called "l2". Rename it here if you like. */
+const L2_NAME = "Psyche Squad";
+const L2_E = "🦋";
 const L2_DELAY_SECONDS = 10;
 const L2_SUCCESS = 0.8;
 const L2_LINES = {
-  start: "Cupid L2 here. I've got this one. You still own the LoveNote, I'm just helping.",
+  start: "Psyche Squad here. We've got this one. You still own the LoveNote, we're just helping.",
   good: ["Calmed everyone down with a very large teddy bear. Heart mended!", "Did a fictional site visit. Brought soup. Everyone is hugging now.", "Ran a group breathing exercise. It worked. Mended."],
   bad: ["The pigeons stole the teddy bear. Heart broken. We apologise.", "I tripped over the spiky bush. It got awkward. Heart broken."],
-  fulfilStart: "Cupid L2 Fulfilment here. On it!",
+  fulfilStart: "Psyche Squad here. Request received. On it!",
   fulfilled: ["Delivered! They cried happy tears.", "Done. The pigeon even did a little bow.", "Fulfilled. Nobody got hit by an arrow."]
 };
 

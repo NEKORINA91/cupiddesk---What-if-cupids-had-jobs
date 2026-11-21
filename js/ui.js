@@ -9,10 +9,11 @@ const WIN = {
   mailbox:   { t: "NoFlight Mail", i: "✉️", w: 700, h: 580 },
   browser:   { t: "Browser", i: "🌐", w: 580, h: 520 },
   shop:      { t: "Cupid Shop", i: "🛍️", w: 420, h: null },
+  overtime:  { t: "Notice from the Goddess", i: "💸", w: 300, h: null, right: true, y: 250 },
   trash:     { t: "Trash", i: "🗑️", w: 340, h: null },
   about:     { t: "About Cupid OS", i: "ℹ️", w: 520, h: null }
 };
-let ui = { open: [], pos: {}, z: 10, sel: null, tab: "queue", mailSel: null, search: null, booted: false, last: Date.now(), page: null, article: 0, job: null };
+let ui = { open: [], pos: {}, z: 10, sel: null, tab: "queue", mailSel: null, search: null, booted: false, last: Date.now(), page: null, article: 0, job: null, folder: "inbox", sentSel: null, compose: null };
 
 /* ---------- small helpers ---------- */
 function fmt(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
@@ -22,6 +23,7 @@ function stars(r) { const full = Math.round(r); return "★".repeat(full) + "☆
 
 function toast(msg, kind) {
   const t = document.createElement("div"); t.className = "toast " + (kind || ""); t.textContent = msg;
+  t.style.top = (14 + document.querySelectorAll(".toast").length * 50) + "px";
   document.body.appendChild(t); setTimeout(() => t.classList.add("out"), 2400); setTimeout(() => t.remove(), 2800);
 }
 function mailPop(m) {
@@ -59,18 +61,58 @@ const SFX = {
   closed: () => beep([[523, .1], [659, .1], [784, .1], [1047, .25]], "triangle"),
   broken: () => beep([[392, .2], [330, .2], [262, .35]], "sawtooth"),
   mail: () => beep([[988, .08], [1319, .12]]),
+  trophy: () => beep([[880, .1], [1175, .1], [1568, .25]], "triangle"),
+  crash: () => {
+    if (!game.sound) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const len = actx.sampleRate * 0.9, buf = actx.createBuffer(1, len, actx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+      const src = actx.createBufferSource(), g = actx.createGain(); g.gain.value = 0.25;
+      src.buffer = buf; src.connect(g); g.connect(actx.destination); src.start();
+    } catch (e) {}
+  },
   ending: () => beep([[392, .3], [523, .3], [659, .3], [784, .6]], "triangle"),
   shiftEnd: () => beep([[523, .15], [659, .15], [784, .15], [1047, .4]], "triangle")
 };
 
 function flushEvents() {
+  let again = false;
   takeEvents().forEach((e) => {
+    if (e.type === "trophy") { toast("🏆 Trophy unlocked: " + e.data.name, "trophy"); SFX.trophy(); }
+    if (e.type === "timeover") { openWin("overtime"); again = true; }
+    if (e.type === "ending" && ENDINGS[e.data].clipped) { showBroken(e.data); }
+    if (e.type === "ending") { closeWin("overtime"); again = true; }
     if (SFX[e.type]) SFX[e.type]();
     if (e.type === "arrive") flyPigeon(e.data);
     if (e.type === "mail") mailPop(e.data);
     if (e.type === "closed") toast(RESOLUTION[e.data.resolution].e + " " + e.data.num + ": " + RESOLUTION[e.data.resolution].label + " (" + (e.data.points >= 0 ? "+" : "") + e.data.points + ")", "ok");
     if (e.type === "broken") toast(RESOLUTION[e.data.resolution].e + " " + e.data.num + ": " + RESOLUTION[e.data.resolution].label + " (" + e.data.points + ")", "bad");
   });
+  if (again) render();
+}
+
+/* ---------- Clipped Wings: the broken-screen ending ---------- */
+function showBroken(key) {
+  const e = ENDINGS[key], cx = 52 + Math.random() * 10, cy = 38 + Math.random() * 10;
+  let lines = "";
+  for (let i = 0; i < 14; i++) { // cracks shooting out from the impact point
+    let a = (i / 14) * Math.PI * 2 + Math.random() * 0.3, x = cx, y = cy, pts = `${x},${y}`;
+    for (let j = 0; j < 5; j++) { const len = 6 + Math.random() * 14; a += (Math.random() - 0.5) * 0.5; x += Math.cos(a) * len; y += Math.sin(a) * len; pts += ` ${x.toFixed(1)},${y.toFixed(1)}`; }
+    lines += `<polyline points="${pts}"/>`;
+  }
+  for (let r = 1; r <= 3; r++) { // rings of shards around it
+    let pts = ""; for (let k = 0; k <= 14; k++) { const a = (k / 14) * Math.PI * 2, rr = r * (5 + Math.random() * 3); pts += `${(cx + Math.cos(a) * rr).toFixed(1)},${(cy + Math.sin(a) * rr).toFixed(1)} `; }
+    lines += `<polyline points="${pts}" class="ring"/>`;
+  }
+  document.querySelectorAll(".toast,.pop,.pigeon").forEach((t) => t.remove());
+  const o = document.createElement("div"); o.className = "broken";
+  o.innerHTML = `<svg class="cracks" viewBox="0 0 100 100" preserveAspectRatio="none">${lines}</svg>
+    <div class="broken-card"><div class="glitch" data-t="CLIPPED WINGS">CLIPPED WINGS</div><div class="b-sub">${e.e} ${esc(e.title)}</div>
+    <div class="b-count">One of ${Object.keys(ENDINGS).length} endings achieved · ${endingsFound()} found so far</div><button class="btn primary big">Continue</button></div>`;
+  o.querySelector("button").onclick = () => o.remove();
+  document.body.appendChild(o);
+  SFX.crash();
 }
 
 /* ---------- windows ---------- */
@@ -83,7 +125,7 @@ function openWin(id) {
     const width = Math.min(w.w, dw - 20);
     const x = w.right ? Math.max(10, dw - width - 14) : Math.max(10, Math.min(100 + n * 18, dw - width - 10));
     const height = id === "cupiddesk" ? Math.min(780, dh - 28) : w.h ? Math.min(w.h, dh - 40) : null;
-    ui.pos[id] = { x, y: id === "cupiddesk" ? 12 : 14 + (w.right ? 0 : n * 10), w: width, h: height, z: 0 };
+    ui.pos[id] = { x, y: w.y != null ? Math.min(w.y, Math.max(10, dh - 280)) : id === "cupiddesk" ? 12 : 14 + (w.right ? 0 : n * 10), w: width, h: height, z: 0 };
   }
   ui.pos[id].z = ++ui.z;
 }
@@ -97,10 +139,10 @@ function winHtml(id, body) {
 }
 
 /* ---------- Cupiddesk app ---------- */
-const STATE_LABEL = { New: "New", Pending: "In progress", Escalated: "With Cupid L2", Closed: "Closed" };
+const STATE_LABEL = { New: "New", Pending: "In progress", Escalated: "With the Psyche Squad", Closed: "Closed" };
 
 function head() {
-  const d = shiftDef(), s = game.shift, running = s && s.status === "running";
+  const d = shiftDef(), s = game.shift, running = s && (s.status === "running" || s.status === "timeover");
   const pts = s && s.points != null ? s.points : 0, pct = Math.max(0, Math.min(100, pts / d.goal * 100));
   const r = rating();
   return `<div class="cd-head">
@@ -108,7 +150,7 @@ function head() {
     <div class="hd-shift"><small>Day ${Math.min(game.day, DAYS.length)} of ${DAYS.length}</small><b>${running ? `🕘 <span data-hour>${gameHour()}</span>` : esc(d.title.split(": ")[1] || d.title)}</b></div>
     ${running ? `<div class="hd-goal"><div class="row sb"><small>Today's points</small><small><b>${pts}</b> / ${d.goal}</small></div><div class="bar goal"><i style="width:${pct}%"></i></div><div class="bar day"><i data-daybar></i></div></div>` : '<div class="hd-goal"></div>'}
     <div class="hd-rate" title="Cupid rating (last 20 LoveNotes)"><small>🪙 ${game.coins} · Rating</small><span class="stars">${r ? stars(r) : "☆☆☆☆☆"}</span></div>
-    ${running ? `<button class="btn ghost sm" data-act="pause">${game.paused ? "▶ Resume" : "⏸ Pause"}</button>` : ""}
+    ${running && s.status === "running" ? `<button class="btn ghost sm" data-act="pause">${game.paused ? "▶ Resume" : "⏸ Pause"}</button>` : ""}
   </div>`;
 }
 
@@ -132,15 +174,15 @@ function shiftCard() {
     <h1>${esc(d.title)}</h1>
     <p>${esc(d.intro)}</p>
     <div class="sc-stats"><div><b>9–5</b><small>${DAY_MINUTES} real minutes</small></div><div><b>${d.goal}</b><small>points for a good day</small></div><div><b>🪙 ${game.coins}</b><small>Heartcoins</small></div></div>
-    <div class="feats">${feat(true, "Chat & mend")}${feat(u.triage, "Triage")}${feat(u.requests, "Requests")}${feat(u.l2, "Escalate to L2")}</div>
+    <div class="feats">${feat(true, "Chat & mend")}${feat(u.triage, "Triage")}${feat(u.requests, "Requests")}${feat(u.l2, "Psyche Squad backup")}</div>
     <button class="btn primary big" data-act="start">Clock in for Day ${game.day}</button>
     <details class="howto"><summary>How to play</summary><ol>
       <li>Pigeons drop LoveNotes in your queue all day. <b>LNI</b> = Incident (something went wrong), <b>LNR</b> = Request (someone wants something).</li>
       <li>Pick one up. Its Heartbreak Timer starts. Near-break notes have the least time.</li>
       <li>Ask for details, then choose replies that fit the problem. Good replies raise <b>Calm</b>. Patch at ${CALM_TO_PATCH}%, mend at ${CALM_TO_MEND}%.</li>
       ${u.triage ? "<li>Set the Category and Heart condition before closing for bonus points.</li>" : ""}
-      ${u.requests ? "<li>Requests: send fair ones to L2 Fulfilment, decline impossible ones.</li>" : ""}
-      ${u.l2 ? "<li>Stuck? Escalate an incident to Cupid L2.</li>" : ""}
+      ${u.requests ? "<li>Requests: send fair ones to the Psyche Squad, decline impossible ones.</li>" : ""}
+      ${u.l2 ? "<li>Stuck? Escalate an incident to the Psyche Squad, the Cupids' mythical backup team.</li>" : ""}
       <li>Check your <b>NoFlight</b> mail. You can reply, and you can <b>forward</b> mail to people. What you forward, and to whom, decides how your week ends. Don't spam.</li>
       <li>Keys 1 to 4 send replies. D asks for details.</li>
     </ol></details>
@@ -171,7 +213,7 @@ function endingView() {
     <p>${esc(e.body)}</p>
     <div class="sc-stats"><div><b>${game.totals.mended}</b><small>hearts mended</small></div><div><b>${game.totals.points}</b><small>total points</small></div><div><b>${game.history.length}</b><small>days worked</small></div></div>
     <p class="muted tiny">Evidence to the angel: ${st.evidence} · Help to the pigeons: ${st.support} · Reports to the Goddess: ${st.loyal}</p>
-    <p class="muted tiny">There are ${Object.keys(ENDINGS).length} endings. Can you find them all?</p>
+    <p class="muted tiny">Endings found: ${endingsFound()} of ${Object.keys(ENDINGS).length}. See them all in Browser → 🏆 My Achievements.</p>
     <button class="btn primary big" data-act="newgame">Start a new week</button>
   </div></div>`;
 }
@@ -182,13 +224,13 @@ function listCard(n) {
     <div class="row sb"><span class="num">${esc(n.num)}</span><span class="pchip p${n.special ? 0 : n.triage.sev || 0}">${pr}</span></div>
     <div class="lc-title">${esc(n.title)}</div>
     <div class="row sb lc-meta"><span>${n.special ? "🐦" : avatar(n.from)} ${esc(n.from.split(" ")[0])}</span>
-      ${n.state === "Pending" && !n.special ? `<span class="mini-timer" data-timer="${n.id}"></span>` : n.state === "Closed" ? `<span>${RESOLUTION[n.resolution].e}</span>` : n.state === "Escalated" ? "<span>🏹</span>" : '<span class="dot-new"></span>'}</div>
+      ${n.state === "Pending" && !n.special ? `<span class="mini-timer" data-timer="${n.id}"></span>` : n.state === "Closed" ? `<span>${RESOLUTION[n.resolution].e}</span>` : n.state === "Escalated" ? "<span>🦋</span>" : '<span class="dot-new"></span>'}</div>
   </button>`;
 }
 
 function listPane() {
   const all = shiftNotes().slice().reverse();
-  const tabs = [["queue", "New", (n) => n.state === "New"], ["mine", "Mine", (n) => n.state === "Pending"], ["l2", "L2", (n) => n.state === "Escalated"], ["done", "Done", (n) => n.state === "Closed"]];
+  const tabs = [["queue", "New", (n) => n.state === "New"], ["mine", "Mine", (n) => n.state === "Pending"], ["l2", "Psyche", (n) => n.state === "Escalated"], ["done", "Done", (n) => n.state === "Closed"]];
   const cur = tabs.find((t) => t[0] === ui.tab) || tabs[0];
   const list = all.filter(cur[2]);
   return `<div class="cd-list">
@@ -201,8 +243,8 @@ function listPane() {
 function chatHtml(n) {
   return n.chat.map((m) => {
     const me = m.who === "cupid", l2 = m.who === "l2";
-    const name = me ? "You" : l2 ? "Cupid L2" : n.from;
-    const av = me ? "💘" : l2 ? "🏹" : n.special ? "🐦" : avatar(n.from);
+    const name = me ? "You" : l2 ? L2_NAME : n.from;
+    const av = me ? "💘" : l2 ? L2_E : n.special ? "🐦" : avatar(n.from);
     return `<div class="msg-row${me ? " me" : ""}${l2 ? " l2" : ""}"><span class="av">${av}</span><div><div class="who">${esc(name)}</div><div class="bubble">${esc(m.text)}</div></div></div>`;
   }).join("");
 }
@@ -256,11 +298,11 @@ function detailPane() {
       <div class="actions">
         ${req ? "" : `<button class="btn primary" data-act="close" data-how="mend"${n.calm < CALM_TO_MEND ? " disabled" : ""}>💘 Mend heart${n.calm < CALM_TO_MEND ? ` <small>${CALM_TO_MEND}%</small>` : ""}</button>
         <button class="btn soft" data-act="close" data-how="patch"${n.calm < CALM_TO_PATCH ? " disabled" : ""}>🩹 Patch${n.calm < CALM_TO_PATCH ? ` <small>${CALM_TO_PATCH}%</small>` : ""}</button>`}
-        ${req ? `<button class="btn primary" data-act="close" data-how="l2">🎁 Send to L2 Fulfilment</button>` : u.l2 ? `<button class="btn soft" data-act="close" data-how="l2">🏹 Escalate to L2</button>` : ""}
+        ${req ? `<button class="btn primary" data-act="close" data-how="l2">🦋 Send to the Psyche Squad</button>` : u.l2 ? `<button class="btn soft" data-act="close" data-how="l2">🦋 Escalate to Psyche Squad</button>` : ""}
         ${u.requests ? `<button class="btn danger" data-act="close" data-how="decline">🚫 Decline</button>` : ""}
       </div>`;
   } else if (n.state === "Escalated") {
-    body = `<div class="meter-box"><div class="row sb"><small>🏹 Cupid L2 ${n.l2Mode === "fulfil" ? "is fulfilling this request" : "is on a (fictional) site visit"}</small></div><div class="bar l2"><i data-l2bar="${n.id}"></i></div></div>
+    body = `<div class="meter-box"><div class="row sb"><small>🦋 The Psyche Squad ${n.l2Mode === "fulfil" ? "is fulfilling this request" : "is on a (fictional) site visit"}</small></div><div class="bar l2"><i data-l2bar="${n.id}"></i></div></div>
       <div class="chat" id="chat">${chatHtml(n)}</div>`;
   } else {
     const R = RESOLUTION[n.resolution];
@@ -283,13 +325,13 @@ function deskApp() {
   if (!game.shift) introShift();
   const s = game.shift;
   const inner = s.status === "ending" ? endingView() : s.status === "intro" ? shiftCard() : s.status === "report" ? reportView()
-    : `<div class="cd-work${ui.sel ? " has-sel" : ""}">${listPane()}${detailPane()}</div>${game.paused ? `<div class="paused"><div><div class="big-e">⏸</div><b>Paused</b><p class="muted">The pigeons are taking a nap.</p><button class="btn primary" data-act="pause">Resume</button></div></div>` : ""}`;
+    : `<div class="cd-work${ui.sel ? " has-sel" : ""}">${listPane()}${detailPane()}</div>${s.status === "timeover" ? `<div class="paused timeover"><div><div class="to-big">⏰ TIME OVER</div><p>It's 5 PM. The desk is closed.</p><button class="btn primary" data-act="clockout">Clock out →</button><p class="muted tiny">(or use the notice on the side)</p></div></div>` : ""}${game.paused ? `<div class="paused"><div><div class="big-e">⏸</div><b>Paused</b><p class="muted">The pigeons are taking a nap.</p><button class="btn primary" data-act="pause">Resume</button></div></div>` : ""}`;
   return `<div class="cd">${head()}<div class="cd-body">${inner}</div></div>`;
 }
 
 /* ---------- other windows ---------- */
 function chartWin() {
-  const c = countStates(), segs = [["New", c.New, "#ED93B1"], ["In progress", c.Pending, "#EF9F27"], ["With L2", c.Escalated, "#7F77DD"]];
+  const c = countStates(), segs = [["New", c.New, "#ED93B1"], ["In progress", c.Pending, "#EF9F27"], ["With Psyche Squad", c.Escalated, "#7F77DD"]];
   const total = c.New + c.Pending + c.Escalated;
   let acc = 0;
   const grad = total ? segs.map((s) => { const a = acc; acc += s[1] / total * 360; return `${s[2]} ${a}deg ${acc}deg`; }).join(",") : "var(--soft) 0deg 360deg";
@@ -304,22 +346,72 @@ function chartWin() {
   </div>`;
 }
 
-function mailWin() {
-  const list = game.mails.slice().reverse(), m = game.mails.find((x) => x.key === ui.mailSel);
-  let read = '<div class="empty-s">Pick a mail to read</div>';
-  if (m) {
-    const p = PARTIES[m.party] || PARTIES.other;
-    const replies = m.replies && m.replies.length ? (m.replied == null
-      ? `<div class="mail-actions"><small class="muted">Reply</small><div class="row">${m.replies.map((r, i) => `<button class="btn soft sm" data-act="mreply" data-i="${i}">↩ ${esc(r.text)}</button>`).join("")}</div></div>`
-      : `<div class="sent">↩ You replied: “${esc(m.replies[m.replied].text)}”</div>`) : "";
-    const fwdBtn = (party, label) => canForwardTo(party)
-      ? `<button class="btn sm ${m.fwd.includes(party) ? "ghost" : "soft"}" data-act="fwd" data-p="${party}"${m.fwd.includes(party) || game.ending ? " disabled" : ""}>${PARTIES[party].e} ${label}${m.fwd.includes(party) ? " ✓" : ""}</button>` : "";
-    read = `<div class="mail-head"><span class="mail-av">${p.e}</span><div><h3>${esc(m.subject)}</h3><div class="muted tiny">From: ${esc(m.from)} · Day ${m.day}</div></div></div>
-      <div class="mail-body">${esc(m.body)}</div>${replies}
-      <div class="mail-actions"><small class="muted">Forward to</small><div class="row">${fwdBtn("angel", "Angel")}${fwdBtn("goddess", "Goddess")}${fwdBtn("pigeons", "Pigeons")}</div></div>`;
+function mailTable(rows) { return `<table class="mh">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>`; }
+function quoteHtml(m, label) {
+  return `<div class="quote"><div class="q-head">---------- ${label} ----------<br>From: ${esc(m.from)} &lt;${esc(fromAddress(m))}&gt;<br>Date: Day ${m.day} · ${esc(m.time || "")}<br>Subject: ${esc(m.subject)}</div><div class="q-body">${esc(m.body)}</div></div>`;
+}
+function partyE(m) { return (PARTIES[m.party] || PARTIES.other).e; }
+
+function composeHtml(m) {
+  const c = ui.compose; if (!c) return "";
+  if (c.mode === "reply") {
+    const list = mailReplies(m);
+    return `<div class="compose"><div class="c-title">↩ Reply</div>
+      ${mailTable([["From", `You &lt;${esc(myAddress())}&gt;`], ["To", `${esc(m.from)} &lt;${esc(fromAddress(m))}&gt;`], ["Subject", "Re: " + esc(m.subject)]])}
+      <div class="c-label">Message</div>
+      <div class="c-opts">${list.map((r, i) => `<button class="copt${c.idx === i ? " on" : ""}" data-act="cpick" data-i="${i}">${esc(r.text)}</button>`).join("")}</div>
+      <div class="row"><button class="btn primary" data-act="csend"${c.idx == null ? " disabled" : ""}>Send ✉️</button><button class="btn ghost" data-act="ccancel">Discard</button></div></div>`;
   }
-  return `<div class="mailwrap"><div class="mail-list" data-scroll="mail"><div class="nf-logo">✉️ NoFlight <small>mail without wings</small></div>${list.map((x) => `<button class="mail${x.read ? "" : " unread"}${ui.mailSel === x.key ? " sel" : ""}" data-act="mail" data-k="${x.key}"><b>${(PARTIES[x.party] || PARTIES.other).e} ${esc(x.from)}</b><span>${esc(x.subject)}</span></button>`).join("") || '<div class="empty-s">No mail yet</div>'}</div>
+  const parties = ["angel", "goddess", "pigeons"].filter(canForwardTo);
+  return `<div class="compose"><div class="c-title">➡ Forward</div>
+    <table class="mh"><tr><th>From</th><td>You &lt;${esc(myAddress())}&gt;</td></tr><tr><th>To</th><td><div class="row">${parties.map((p) => `<button class="tochip${c.party === p ? " on" : ""}" data-act="cto" data-p="${p}"${m.fwd.includes(p) ? " disabled" : ""}>${PARTIES[p].e} ${PARTIES[p].name}${m.fwd.includes(p) ? " (sent)" : ""}</button>`).join("")}</div></td></tr>
+    <tr><th>Subject</th><td>Fwd: ${esc(m.subject)}</td></tr></table>
+    ${parties.length < 3 ? `<p class="tiny muted">Only people who have emailed you can be forwarded to.</p>` : ""}
+    ${quoteHtml(m, "Forwarded message")}
+    <div class="row"><button class="btn primary" data-act="csend"${!c.party ? " disabled" : ""}>Send ✉️</button><button class="btn ghost" data-act="ccancel">Discard</button></div></div>`;
+}
+
+function mailWin() {
+  const inbox = ui.folder !== "sent", unread = unreadCount();
+  const folders = `<div class="folders"><button class="fold${inbox ? " on" : ""}" data-act="folder" data-f="inbox">📥 Inbox${unread ? `<span class="tc">${unread}</span>` : ""}</button><button class="fold${!inbox ? " on" : ""}" data-act="folder" data-f="sent">📤 Sent <small>${game.sent.length}</small></button></div>`;
+  const items = inbox
+    ? game.mails.slice().reverse().map((x) => `<button class="mail${x.read ? "" : " unread"}${ui.mailSel === x.key ? " sel" : ""}" data-act="mail" data-k="${x.key}"><div class="row sb"><b>${partyE(x)} ${esc(x.from)}</b><small>D${x.day} ${esc(x.time || "")}</small></div><span>${esc(x.subject)}</span></button>`).join("")
+    : game.sent.slice().reverse().map((x) => `<button class="mail${ui.sentSel === x.key ? " sel" : ""}" data-act="sentmail" data-k="${x.key}"><div class="row sb"><b>To: ${esc(x.to)}</b><small>D${x.day} ${esc(x.time || "")}</small></div><span>${esc(x.subject)}</span></button>`).join("");
+  let read = `<div class="empty-s">${inbox ? "Pick a mail to read" : "Pick a sent mail"}</div>`;
+  if (inbox) {
+    const m = game.mails.find((x) => x.key === ui.mailSel);
+    if (m) read = `<div class="mtool"><button class="btn soft sm" data-act="compose" data-m="reply"${m.replied != null ? " disabled" : ""}>↩ Reply</button><button class="btn soft sm" data-act="compose" data-m="forward"${game.ending ? " disabled" : ""}>➡ Forward</button></div>
+      <h3 class="msubj">${esc(m.subject)}</h3>
+      ${mailTable([["From", `${partyE(m)} <b>${esc(m.from)}</b> &lt;${esc(fromAddress(m))}&gt;`], ["To", m.toAll ? "All Cupids &lt;all-cupids@cupiddesk.love&gt;" : `You &lt;${esc(myAddress())}&gt;`], ["Date", `Day ${m.day} · ${esc(m.time || "")}`]])}
+      <div class="mail-body">${esc(m.body)}</div>
+      ${m.replied != null ? `<div class="sent">↩ You replied: “${esc(mailReplies(m)[m.replied].text)}”</div>` : ""}
+      ${m.fwd.length ? `<div class="sent fw">➡ Forwarded to: ${m.fwd.map((p) => PARTIES[p].name).join(", ")}</div>` : ""}
+      ${composeHtml(m)}`;
+  } else {
+    const s = game.sent.find((x) => x.key === ui.sentSel);
+    if (s) read = `<h3 class="msubj">${esc(s.subject)}</h3>
+      ${mailTable([["From", `💘 <b>You</b> &lt;${esc(myAddress())}&gt;`], ["To", `${esc(s.to)} &lt;${esc(s.toAddr || "")}&gt;`], ["Date", `Day ${s.day} · ${esc(s.time || "")}`]])}
+      ${s.body ? `<div class="mail-body">${esc(s.body)}</div>` : ""}
+      ${s.quote ? quoteHtml(s.quote, s.forward ? "Forwarded message" : "Original message") : ""}`;
+  }
+  return `<div class="mailwrap"><div class="mail-list" data-scroll="mail"><div class="nf-logo">✉️ NoFlight <small>mail without wings</small></div>${folders}${items || '<div class="empty-s">Nothing here yet</div>'}</div>
     <div class="mail-read" data-scroll="mailread">${read}</div></div>`;
+}
+
+function trophiesPage() {
+  const got = Object.keys(trophies.got).length;
+  return `<div class="trophy-head"><div class="big-e">🏆</div><h2>My Achievements</h2>
+    <p><b>${got}</b> of ${TROPHIES.length} trophies · Endings found: <b>${endingsFound()}</b> of ${Object.keys(ENDINGS).length}</p>
+    <p class="tiny muted">Saved in this browser. Starting a new week won't remove them.</p></div>
+    <div class="tgrid">${TROPHIES.map((t) => { const g = trophies.got[t.id], ending = t.id.startsWith("end_");
+      return `<div class="trophy${g ? " got" : ""}"><span class="t-e">${g ? t.e : "🔒"}</span><b>${g || !ending ? esc(t.name) : "Hidden ending"}</b><small>${g || !ending ? esc(t.desc) : "???"}</small>${g ? `<small class="t-date">Unlocked ${esc(g)}</small>` : ""}</div>`; }).join("")}</div>`;
+}
+
+function overtimeWin() {
+  return `<div class="page notice" data-act="clockout"><div class="stamp">NO OVERTIME PAID</div>
+    <p>It's 5 PM. The Love Goddess does not pay overtime. Put down your bow and go home.</p>
+    <button class="btn primary big">Clock out & end Day ${game.day} →</button>
+    <p class="tiny muted">Open LoveNotes go to the night shift.</p></div>`;
 }
 
 function findHidden(q) {
@@ -327,7 +419,8 @@ function findHidden(q) {
   return HIDDEN_PAGES.find((p) => p.keys.some((k) => s === k || s.includes(k)));
 }
 function browserWin() {
-  const bar = (addr) => `<div class="addr"><button class="btn ghost sm" data-act="home" title="Home">🏠</button><input id="q" maxlength="60" placeholder="Search WorldArticlez" value="${esc(ui.search || "")}" data-keep><button class="btn primary sm" data-act="search">Search</button></div><div class="tiny muted url">${esc(addr)}</div>`;
+  const bar = (addr) => `<div class="bookmarks"><button class="bm${!ui.page || ui.page === "article" ? " on" : ""}" data-act="home">🌍 WorldArticlez</button><button class="bm${ui.page === "trophies" ? " on" : ""}" data-act="trophies">🏆 My Achievements</button></div><div class="addr"><button class="btn ghost sm" data-act="home" title="Home">🏠</button><input id="q" maxlength="60" placeholder="Search WorldArticlez" value="${esc(ui.search || "")}" data-keep><button class="btn primary sm" data-act="search">Search</button></div><div class="tiny muted url">${esc(addr)}</div>`;
+  if (ui.page === "trophies") return `<div class="page">${bar("cupidos://my-achievements")}${trophiesPage()}</div>`;
   if (ui.page === "article") {
     const a = ARTICLES[ui.article];
     return `<div class="page">${bar("worldarticlez://news/" + ui.article)}<div class="wa-art"><div class="kicker">WorldArticlez</div><h2>${esc(a.title)}</h2><p>${esc(a.body)}</p><button class="btn ghost sm" data-act="home">← All articles</button></div></div>`;
@@ -356,10 +449,10 @@ function trashWin() {
 function aboutWin() {
   return `<div class="page"><h3>About Cupid OS & Cupiddesk</h3><p>${esc(DISCLAIMER)}</p><p>${esc(INSPIRED)}</p>
     <p>The code of this game was made with the help of generative AI. No external libraries, fonts or images. Emoji are drawn by your device.</p>
-    <p class="muted tiny">Your progress is saved only in this browser.</p><button class="btn danger" data-act="reset">Clear game data on this device</button></div>`;
+    <p class="muted tiny">Your progress is saved only in this browser.</p><div class="row"><button class="btn soft" data-act="reset">Restart game (keeps trophies)</button><button class="btn danger" data-act="wipeall">Delete everything (incl. trophies)</button></div></div>`;
 }
 
-const BODY = { cupiddesk: deskApp, browser: browserWin, mailbox: mailWin, trash: trashWin, chart: chartWin, about: aboutWin, shop: shopWin };
+const BODY = { cupiddesk: deskApp, browser: browserWin, mailbox: mailWin, trash: trashWin, chart: chartWin, about: aboutWin, shop: shopWin, overtime: overtimeWin };
 
 /* ---------- boot screen ---------- */
 function bootHtml() {
@@ -439,7 +532,7 @@ const acts = {
   clockin() { clockIn(val("w-name")); introShift(); render(); },
   start() { startShift(); ui.sel = null; ui.tab = "queue"; ui.last = Date.now(); openWin("chart"); openWin("cupiddesk"); render(); flushEvents(); },
   next() { nextShift(); ui.sel = null; render(); flushEvents(); },
-  newgame() { const name = game.cupid && game.cupid.name; wipeGame(); clockIn(name); introShift(); ui.sel = null; ui.mailSel = null; ui.page = null; render(); },
+  newgame() { const name = game.cupid && game.cupid.name; wipeGame(); clockIn(name); introShift(); ui.sel = null; ui.mailSel = null; ui.sentSel = null; ui.compose = null; ui.page = null; render(); },
   pause() { togglePause(); ui.last = Date.now(); render(); },
   tab(el) { ui.tab = el.dataset.t; render(); },
   select(el) { ui.sel = +el.dataset.id; render(); },
@@ -449,16 +542,38 @@ const acts = {
   reply(el) { reply(ui.sel, +el.dataset.i); render(); flushEvents(); },
   pchoice(el) { pigeonChoice(ui.sel, el.dataset.c); render(); flushEvents(); },
   sound() { game.sound = !game.sound; save(); render(); },
-  search() { ui.search = val("q") || ""; ui.page = ui.search ? "search" : null; ui.job = null; render(); },
-  goto(el) { ui.search = el.dataset.q; ui.page = "search"; ui.job = null; render(); },
+  search() {
+    ui.search = val("q") || ""; ui.page = ui.search ? "search" : null; ui.job = null;
+    if (ui.search) {
+      const h = findHidden(ui.search);
+      if (h) { trophies.found[h.keys[0]] = 1; if (HIDDEN_PAGES.every((p) => trophies.found[p.keys[0]])) award("hidden_all"); }
+      else { trophies.restricted++; if (trophies.restricted >= 5) award("nosy"); }
+      saveTrophies();
+    }
+    render(); flushEvents();
+  },
+  trophies() { ui.page = "trophies"; render(); },
+  goto(el) { ui.search = el.dataset.q; const h = findHidden(ui.search); if (h) { trophies.found[h.keys[0]] = 1; if (HIDDEN_PAGES.every((p) => trophies.found[p.keys[0]])) award("hidden_all"); saveTrophies(); } ui.page = "search"; ui.job = null; render(); flushEvents(); },
   home() { ui.page = null; ui.search = ""; render(); },
-  article(el) { ui.page = "article"; ui.article = +el.dataset.i; render(); },
-  ptw() { const j = payToWork(); if (j) { ui.job = j; SFX.closed(); } render(); },
-  mail(el) { ui.mailSel = el.dataset.k; readMail(ui.mailSel); render(); },
-  mreply(el) { replyMail(ui.mailSel, +el.dataset.i); toast("↩ Reply sent"); render(); },
-  fwd(el) { if (forwardMail(ui.mailSel, el.dataset.p) === "ok") toast("📨 Forwarded to " + PARTIES[el.dataset.p].name); render(); },
+  article(el) { ui.page = "article"; ui.article = +el.dataset.i; trophies.articles[ui.article] = 1; saveTrophies(); if (Object.keys(trophies.articles).length >= 5) award("news_junkie"); render(); flushEvents(); },
+  ptw() { const j = payToWork(); if (j) { ui.job = j; SFX.closed(); } render(); flushEvents(); },
+  mail(el) { ui.mailSel = el.dataset.k; ui.compose = null; readMail(ui.mailSel); render(); },
+  sentmail(el) { ui.sentSel = el.dataset.k; render(); },
+  folder(el) { ui.folder = el.dataset.f; ui.compose = null; render(); },
+  compose(el) { ui.compose = { mode: el.dataset.m, idx: null, party: null }; render(); const c = document.querySelector(".compose"); if (c) c.scrollIntoView({ block: "nearest" }); },
+  cpick(el) { ui.compose.idx = +el.dataset.i; render(); },
+  cto(el) { ui.compose.party = el.dataset.p; render(); },
+  ccancel() { ui.compose = null; render(); },
+  csend() {
+    const c = ui.compose; if (!c) return;
+    if (c.mode === "reply" && c.idx != null) { replyMail(ui.mailSel, c.idx); toast("✉️ Reply sent"); }
+    else if (c.mode === "forward" && c.party) { if (forwardMail(ui.mailSel, c.party) === "ok") toast("✉️ Forwarded to " + PARTIES[c.party].name); }
+    ui.compose = null; render(); flushEvents();
+  },
+  clockout() { clockOut(); closeWin("overtime"); ui.sel = null; render(); flushEvents(); },
+  wipeall() { if (!confirm("Delete ALL game data, including trophies?")) return; wipeEverything(); ui.sel = null; ui.mailSel = null; ui.page = null; ui.open = []; openWin("cupiddesk"); render(); },
   emptytrash() { toast("The pigeons took the trash away. 🕊️"); },
-  reset() { if (!confirm("Clear all game data on this device?")) return; wipeGame(); ui.sel = null; ui.mailSel = null; ui.page = null; ui.open = []; openWin("cupiddesk"); render(); }
+  reset() { if (!confirm("Restart the game? Your trophies stay.")) return; wipeGame(); ui.sel = null; ui.mailSel = null; ui.page = null; ui.open = []; openWin("cupiddesk"); render(); }
 };
 
 document.addEventListener("click", (e) => { const el = e.target.closest("[data-act]"); if (el && !el.disabled && acts[el.dataset.act]) acts[el.dataset.act](el); });
@@ -498,6 +613,7 @@ function finishBoot() {
   ui.booted = true; ui.last = Date.now();
   render(); // build the desktop first so windows can measure it
   if (game.shift && game.shift.status === "running") { openWin("chart"); game.paused = true; save(); } // resume where you left off
+  if (game.shift && game.shift.status === "timeover") openWin("overtime");
   openWin("cupiddesk");
   render();
 }

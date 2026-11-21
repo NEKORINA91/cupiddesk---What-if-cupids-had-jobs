@@ -294,6 +294,68 @@ button.hl:hover a{text-decoration:underline}
 .shop-item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px;border-radius:12px;background:var(--soft);text-align:center;font-size:13px}
 .shop-item .big-e{font-size:30px}
 
+
+/* ---------- NoFlight: email client ---------- */
+.folders{display:flex;gap:4px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.fold{flex:1;border:0;background:transparent;border-radius:8px;padding:5px 6px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.fold.on{background:var(--card);color:var(--l2);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.mail .row small{color:var(--muted);font-size:10.5px;font-weight:500;white-space:nowrap}
+.mtool{display:flex;gap:6px;padding-bottom:10px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.msubj{margin:0 0 8px;font-size:18px}
+.mh{width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:6px}
+.mh th{text-align:left;color:var(--muted);font-weight:600;width:64px;padding:3px 8px 3px 0;vertical-align:top}
+.mh td{padding:3px 0;word-break:break-word}
+.mail-read .mail-body{padding-top:12px;border-top:1px solid var(--line)}
+.quote{margin:10px 0;padding:8px 12px;border-left:3px solid var(--line);color:var(--muted);font-size:12.5px}
+.q-head{font-family:var(--mono);font-size:11px;margin-bottom:6px}
+.q-body{white-space:pre-wrap}
+.sent.fw{color:var(--l2);margin-top:4px}
+.compose{margin-top:14px;padding:12px;border-radius:14px;border:1px solid var(--pk);background:var(--bg);box-shadow:0 4px 14px rgba(91,42,76,.1)}
+.c-title{font-weight:800;color:var(--pk-d);margin-bottom:6px}
+.c-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px}
+.c-opts{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.copt,.tochip{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:8px 10px;text-align:left;font-size:13px}
+.tochip{padding:4px 10px;border-radius:20px;font-size:12px}
+.copt.on,.tochip.on{border-color:var(--pk);background:var(--pk-l);font-weight:700}
+.tochip:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- browser bookmarks + trophies ---------- */
+.bookmarks{display:flex;gap:4px;margin-bottom:8px}
+.bm{border:0;background:transparent;border-radius:8px;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted)}
+.bm.on{background:var(--soft2);color:var(--text)}
+.trophy-head{text-align:center;margin:6px 0 14px}
+.trophy-head h2{margin:2px 0}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.trophy{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:12px 8px;border-radius:14px;background:var(--soft);opacity:.6;font-size:12.5px}
+.trophy small{color:var(--muted);font-size:11px}
+.trophy.got{opacity:1;background:linear-gradient(160deg,#fff4d6,var(--card));border:1px solid #f2c94c}
+@media (prefers-color-scheme: dark){.trophy.got{background:linear-gradient(160deg,#4a3c14,var(--card))}}
+.t-e{font-size:30px}
+.t-date{font-size:10px!important;color:var(--ok)!important}
+.toast.trophy{background:linear-gradient(90deg,#f2a516,#ff5fa2);color:#fff}
+
+/* ---------- time over ---------- */
+.timeover{background:rgba(43,22,33,.55);color:#fff}
+.timeover .to-big{font-size:42px;font-weight:900;letter-spacing:.04em;text-shadow:0 4px 18px rgba(0,0,0,.4);animation:beat 1.6s ease-in-out infinite}
+.notice{text-align:center;cursor:pointer}
+.stamp{display:inline-block;margin:6px 0 10px;padding:8px 14px;border:3px solid var(--bad);border-radius:8px;color:var(--bad);font-weight:900;font-size:20px;letter-spacing:.06em;transform:rotate(-4deg);animation:pop .4s cubic-bezier(.2,1.6,.4,1)}
+
+/* ---------- Clipped Wings broken screen ---------- */
+.broken{position:fixed;inset:0;z-index:500;display:grid;place-items:center;background:radial-gradient(circle at 55% 42%,rgba(60,20,40,.9),rgba(8,3,6,.96) 70%);animation:shake .5s cubic-bezier(.36,.07,.19,.97)}
+.cracks{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.cracks polyline{fill:none;stroke:#fff;stroke-width:.35;opacity:.85;stroke-dasharray:200;stroke-dashoffset:200;animation:crack .45s ease-out forwards;filter:drop-shadow(0 0 1px rgba(255,255,255,.8))}
+.cracks .ring{stroke-width:.2;opacity:.5}
+@keyframes crack{to{stroke-dashoffset:0}}
+@keyframes shake{10%,90%{transform:translate(-2px,1px)}20%,80%{transform:translate(4px,-2px)}30%,50%,70%{transform:translate(-8px,3px)}40%,60%{transform:translate(8px,-3px)}}
+.broken-card{position:relative;text-align:center;color:#fff;padding:24px;max-width:90vw;animation:winIn .5s .4s both}
+.glitch{position:relative;font-size:clamp(34px,8vw,72px);font-weight:900;letter-spacing:.06em;color:#fff}
+.glitch::before,.glitch::after{content:attr(data-t);position:absolute;inset:0}
+.glitch::before{color:#ff4d8d;transform:translate(-3px,0);clip-path:inset(0 0 55% 0);animation:gl 1.8s infinite steps(2)}
+.glitch::after{color:#4dd6ff;transform:translate(3px,0);clip-path:inset(55% 0 0 0);animation:gl 1.3s infinite reverse steps(2)}
+@keyframes gl{0%{transform:translate(-3px,0)}50%{transform:translate(3px,1px)}100%{transform:translate(-2px,-1px)}}
+.b-sub{font-size:18px;font-weight:700;margin:10px 0 4px}
+.b-count{opacity:.7;font-size:13px;margin-bottom:18px}
+
 /* ---------- small screens ---------- */
 @media (max-width:760px){
   .icons{grid-template-columns:repeat(3,1fr);left:50%;transform:translateX(-50%);top:20px}
@@ -313,7 +375,8 @@ button.hl:hover a{text-decoration:underline}
   .chat{flex-basis:auto!important;max-height:240px}
   .cd-detail{padding:12px}
   .pop{top:12px;bottom:auto;right:8px;left:8px;max-width:none}
-  .mailwrap{grid-template-columns:1fr;grid-template-rows:170px 1fr}
+  .mailwrap{grid-template-columns:1fr;grid-template-rows:200px 1fr}
+  .tgrid{grid-template-columns:1fr 1fr}
   .mail-list{border-right:0;border-bottom:1px solid var(--line)}
   .task span{display:none}
   .watermark{left:10px;right:10px;text-align:center}

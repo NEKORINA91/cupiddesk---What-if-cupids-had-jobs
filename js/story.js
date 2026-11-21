@@ -21,9 +21,9 @@ const DAYS = [
     first: 4, every: 60, goal: 900, unlock: { triage: false, requests: false, l2: false }, types: ["incident"], maxSev: 2 },
   { title: "Day 2: Pigeon Mail", intro: "Triage starts today. Set the Category and Heart condition before closing a LoveNote.",
     first: 4, every: 52, goal: 1200, unlock: { triage: true, requests: false, l2: false }, types: ["incident"], maxSev: 1 },
-  { title: "Day 3: Requests Welcome", intro: "Requests (LNR numbers) arrive today. Fair ones go to L2 Fulfilment. Impossible ones get declined.",
+  { title: "Day 3: Requests Welcome", intro: "Requests (LNR numbers) arrive today. Fair ones go to the Psyche Squad. Impossible ones get declined.",
     first: 4, every: 48, goal: 1400, unlock: { triage: true, requests: true, l2: false }, types: ["incident", "request"], maxSev: 1 },
-  { title: "Day 4: Call for Backup", intro: "You can escalate incidents to Cupid L2 now. Slower, fewer points, usually works.",
+  { title: "Day 4: Call for Backup", intro: "You can escalate incidents to the Psyche Squad now, the Cupids' mythical backup team. Slower, fewer points, usually works.",
     first: 4, every: 45, goal: 1500, unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1 },
   { title: "Day 5: Strange Orders", intro: "[PLACEHOLDER] The Goddess's mails are getting stranger. Keep the hearts mended. Keep your eyes open.",
     first: 4, every: 42, goal: 1600, unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1 },
@@ -35,11 +35,13 @@ const DAYS = [
 
 /* ---------- who can send and receive mail ---------- */
 const PARTIES = {
-  goddess: { name: "The Love Goddess", e: "👑" },
-  angel:   { name: "Angel (High Realm)", e: "😇" },
-  pigeons: { name: "Pigeon Spy", e: "🐦" },
-  other:   { name: "", e: "✉️" }
+  goddess: { name: "The Love Goddess", e: "👑", address: "goddess@love.divine" },
+  angel:   { name: "Angel (High Realm)", e: "😇", address: "a.investigations@highrealm.heaven" },
+  pigeons: { name: "Pigeon Spy", e: "🐦", address: "spy@coop.noflight" },
+  other:   { name: "", e: "✉️", address: "" }
 };
+// replies offered on mails that don't have their own (no one answers these)
+const DEFAULT_REPLIES = [{ text: "Thanks!" }, { text: "Noted." }];
 
 /* ---------- NoFlight mail ----------
    day / at: which day and how many real minutes into it (0 to 11).
@@ -163,17 +165,25 @@ const LIMITS = {
   angelWin: 3,       // suspicious Goddess mails sent to the angel to win
   pigeonWin: 3       // suspicious Goddess mails sent to the pigeons for the pigeon ending
 };
+// Each side warns you, then gives a FINAL WARNING. One more pointless forward after that = Clipped Wings.
 const WARNINGS = {
-  annoyAngel: "[PLACEHOLDER] Cupid. One more pointless email and I'll start wondering whose side you're on. - A.",
-  annoyGoddess: "[PLACEHOLDER] Stop filling my inbox, Cupid. My patience is not eternal, even if I am.",
-  frustrate: "[PLACEHOLDER] COO. Stop sending us random stuff."
+  annoyAngel: {
+    first: "[PLACEHOLDER] Cupid. Please only send me real evidence. - A.",
+    final: "[PLACEHOLDER] FINAL WARNING. One more pointless email and I'll treat you as part of the problem. - A."
+  },
+  annoyGoddess: {
+    first: "[PLACEHOLDER] Stop filling my inbox, Cupid. My patience is not eternal, even if I am.",
+    final: "[PLACEHOLDER] FINAL WARNING. Send me one more useless email and you're done here."
+  },
+  frustrate: { first: "[PLACEHOLDER] COO. Stop sending us random stuff.", final: "[PLACEHOLDER] COO COO. We are VERY frustrated. (We won't do anything about it though.)" }
 };
 const ENDINGS = {
   angel:    { e: "😇", title: "Ending: The Report", body: "[PLACEHOLDER] You helped the angel. The High Realm reads the report, and the Love Goddess is caught. The Cupiddesk is under new management. You finally clock out." },
   pigeons:  { e: "🐦", title: "Ending: Feathers Fly", body: "[PLACEHOLDER] You helped the pigeons. The Goddess finds out, terminates your contract, and hands you over to the angels." },
   neutral:  { e: "⛓️", title: "Ending: Just Doing My Job", body: "[PLACEHOLDER] You kept your head down and worked until the end. The angel arrests you for not supporting the investigation." },
-  spamAngel:   { e: "🚨", title: "Ending: Inbox Overload", body: "[PLACEHOLDER] You flooded the angel's inbox one too many times. They arrest you for wasting the High Realm's time." },
-  spamGoddess: { e: "📦", title: "Ending: Fired", body: "[PLACEHOLDER] You flooded the Goddess's inbox one too many times. You're fired. Please return your wings." }
+  // clipped: true = shows the broken-screen "CLIPPED WINGS" effect first
+  spamAngel:   { e: "🚨", clipped: true, title: "Ending: Clipped Wings (Arrested)", body: "[PLACEHOLDER] You flooded the angel's inbox one too many times. They arrest you for wasting the High Realm's time." },
+  spamGoddess: { e: "📦", clipped: true, title: "Ending: Clipped Wings (Fired)", body: "[PLACEHOLDER] You flooded the Goddess's inbox one too many times. You're fired. Please return your wings." }
 };
 
 /* ---------- WorldArticlez (in-game browser) ----------
@@ -209,4 +219,28 @@ const SHOP_ITEMS = [
   { name: "Golden arrow (real one)", e: "🏹", price: 300 },
   { name: "Desk plant (not Gerald)", e: "🪴", price: 60 },
   { name: "Extra crumbs for the pigeons", e: "🍞", price: 40 }
+];
+
+/* ---------- Trophies (My Achievements, in the browser) ----------
+   Trophies are saved separately and stay even when you start a new week.
+   They're only removed by "Delete everything" in About, or by clearing the browser's data. */
+const TROPHIES = [
+  { id: "first_mend", e: "💘", name: "First Flutter", desc: "Mend your first heart." },
+  { id: "mend_25", e: "💞", name: "Heart Mechanic", desc: "Mend 25 hearts in one week." },
+  { id: "perfect_day", e: "🌟", name: "Employee of the Day", desc: "Get an S on a day report." },
+  { id: "full_week", e: "📅", name: "Survived the Week", desc: "Work all 7 days." },
+  { id: "pigeon_pal", e: "🐦", name: "Pigeon Pal", desc: "Give the pigeons your email." },
+  { id: "cold_shoulder", e: "🧊", name: "Cold Shoulder", desc: "Refuse the pigeons every single time." },
+  { id: "first_evidence", e: "📨", name: "Whistleblower", desc: "Send the angel real evidence." },
+  { id: "snitch", e: "👑", name: "Teacher's Pet", desc: "Report someone to the Goddess." },
+  { id: "nosy", e: "🔒", name: "Restricted Access", desc: "Hit 'Restricted access' 5 times." },
+  { id: "hidden_all", e: "🗝️", name: "Deep Web Cupid", desc: "Find every hidden page." },
+  { id: "news_junkie", e: "📰", name: "News Junkie", desc: "Read 5 WorldArticlez stories." },
+  { id: "paytowork", e: "🎰", name: "Employed (Sort Of)", desc: "Win a job from PayToWork." },
+  { id: "end_angel", e: "😇", name: "Ending: The Report", desc: "Help the angel." },
+  { id: "end_pigeons", e: "🪶", name: "Ending: Feathers Fly", desc: "Help the pigeons." },
+  { id: "end_neutral", e: "⛓️", name: "Ending: Just Doing My Job", desc: "Stay out of it." },
+  { id: "end_spamAngel", e: "🚨", name: "Ending: Clipped Wings (Arrested)", desc: "Annoy the angel too much." },
+  { id: "end_spamGoddess", e: "📦", name: "Ending: Clipped Wings (Fired)", desc: "Annoy the Goddess too much." },
+  { id: "all_endings", e: "🏆", name: "Seen It All", desc: "Find every ending." }
 ];

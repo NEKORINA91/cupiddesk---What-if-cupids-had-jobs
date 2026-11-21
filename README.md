@@ -17,7 +17,7 @@ Open `index.html` in any modern browser (double-click it, or use VS Code's "Live
   - `LNR0001042` = **Request** (someone wants something: a cake, a serenade, or something impossible)
 - **Pick up** a LoveNote to start its **Heartbreak Timer**. Near-break notes have the least time. Cupiddesk uses its own heart scale (Minor, Cracking, Near-break) instead of P1/P2/P3.
 - **Ask for details**, then pick replies that fit the problem. Replies that match the hidden category raise **Calm** the most. Bad replies make it worse.
-- **Close it**: Patch (45% Calm), Mend (75% Calm, plus a speed bonus), Escalate to automated **Cupid L2**, send a request to **L2 Fulfilment**, or **Decline** impossible requests (love potions, cloning, "send me a girlfriend").
+- **Close it**: Patch (45% Calm), Mend (75% Calm, plus a speed bonus), Escalate to the automated **Psyche Squad** (the backup team), send fair requests to them to fulfil, or **Decline** impossible requests (love potions, cloning, "send me a girlfriend").
 - **Triage**: set the Category and Heart condition before closing for bonus points.
 - Every shift ends with a **report card** (S, A, B, C or D).
 - Keys **1 to 4** send replies, **D** asks for details.
@@ -26,11 +26,14 @@ Open `index.html` in any modern browser (double-click it, or use VS Code's "Live
 
 Each in-game day runs from 9 AM to 5 PM and lasts 12 real minutes. You get 7 days.
 
-- **NoFlight mail**: the Love Goddess, an angel from the High Realm, the pigeons and random coworkers email you. You can **reply**, and you can **forward** any mail to the Angel, the Goddess or the Pigeons. What you forward, and to whom, decides your ending. Spamming someone has consequences.
+- **NoFlight mail**: a normal email client with Inbox and Sent folders, From/To/Date headers, and Reply and Forward. The Love Goddess, an angel from the High Realm, the pigeons and random coworkers email you. You can **reply**, and you can **forward** any mail to the Angel, the Goddess or the Pigeons. What you forward, and to whom, decides your ending. Spamming someone has consequences.
 - **The pigeon LoveNote**: from Day 2 the pigeons write in. Accept, ask why, or refuse. If you refuse, they try again on later days.
 - **WorldArticlez**: the in-game browser's news site. Most searches say "Restricted access", but a few words open hidden pages (try the Goddess, the Pigeon CEO, the High Realm or PayToWork).
 - **Heartcoins**: you earn them every day. Spend them on the PayToWork job lottery. The Cupid Shop is coming soon.
+- **Warnings**: spam someone and they warn you, then send a FINAL WARNING. One more and your wings get clipped (a broken-screen ending).
+- **Time over**: at 5 PM the desk closes and a "No overtime paid" notice appears. Click it to clock out and go to the next day.
 - **5 endings**.
+- **Trophies**: Browser → 🏆 My Achievements. They're saved separately and stay when you start a new week. Only "Delete everything" in About, or clearing the browser's data, removes them.
 
 All story text is in `js/story.js`. Lines marked `[PLACEHOLDER]` are stand-ins to replace with the real story.
 
