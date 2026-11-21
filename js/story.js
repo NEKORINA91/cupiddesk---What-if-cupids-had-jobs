@@ -1,95 +1,212 @@
-// STORY MODE. The game is played in shifts. Each shift is one chapter of the story.
+// STORY MODE: 7 working days at the Cupiddesk.
+// Everything marked [PLACEHOLDER] is stand-in text. Replace it with your own story.
 //
-// This is a stand-in story so the game is playable. Rewrite any text here with your
-// own plot: mails, shift names, intros and the scripted "story" LoveNotes.
-//
-// Shift fields:
-//   title, intro      shown on the shift card before it starts
-//   notes             how many LoveNotes arrive during the shift
-//   first, every      seconds until the first pigeon, then seconds between pigeons
-//   goal              points needed to pass the shift
-//   unlock            which features are on: triage (set type/priority), requests, l2 (escalation)
-//   types             which LoveNotes can be generated: "incident", "request"
-//   maxSev            lowest priority number allowed (3 = only Minor, 2 = Cracking and Minor, 1 = anything)
-//   story             scripted LoveNotes that arrive as note number "at" in the shift
-//   mails             { on: "start" | "closed:N" | "end", from, subject, body }
+// The plot so far:
+// - The Love Goddess runs the Cupiddesk. Something about her is off.
+// - The Pigeons carry LoveNotes (pigeon mail). Fewer paper letters in the internet age means lower pay. They're unhappy.
+// - The Goddess complained that the pigeons sabotage her. The pigeons complained about pay and her suspicious behaviour.
+// - An Angel from the High Realm is quietly investigating and asks the Cupid for help.
+// - You're a Cupid just trying to clock out.
 
-const SHIFTS = [
-  {
-    title: "Shift 1: First Flight",
-    intro: "Your first day at the Cupiddesk. Pick up LoveNotes, chat with the sender, and calm them down before the Heartbreak Timer runs out.",
-    notes: 3, first: 3, every: 22, goal: 220,
-    unlock: { triage: false, requests: false, l2: false }, types: ["incident"], maxSev: 2,
-    mails: [
-      { on: "start", from: "Senior Cupid", subject: "Welcome to the desk",
-        body: "Welcome, rookie.\n\nHeartbreak never sleeps, and neither do the pigeons. When a LoveNote lands, pick it up, ask for details, and pick replies that fit the problem.\n\nGet their Calm high enough and you can mend the heart. Let the timer hit zero and... well. Don't let the timer hit zero.\n\n- Senior Cupid" },
-      { on: "closed:2", from: "Heart Resources", subject: "Reminder: wings must be worn",
-        body: "A friendly reminder that wings are part of the dress code.\n\nWe have received three complaints about Cupids working 'wingless'. You know who you are.\n\n- Heart Resources" }
-    ]
-  },
-  {
-    title: "Shift 2: Triage Tuesday",
-    intro: "New today: triage. Before you close a LoveNote, set its Category and Heart condition. Getting them right earns bonus points.",
-    notes: 4, first: 3, every: 20, goal: 380,
-    unlock: { triage: true, requests: false, l2: false }, types: ["incident"], maxSev: 1,
-    mails: [
-      { on: "start", from: "Senior Cupid", subject: "About those priorities",
-        body: "Not every LoveNote is on fire. Some are just smouldering.\n\nNear-break = the heart is in danger RIGHT NOW.\nCracking = upset, but stable.\nMinor = a small grumble.\n\nRead carefully. Words like 'right now' and 'leaving' are clues.\n\nFor the Category, ask for details. People always say more than they mean to.\n\n- Senior Cupid" }
-    ]
-  },
-  {
-    title: "Shift 3: Requests Welcome",
-    intro: "Now you'll get Requests (LNR numbers) too. Fair ones go to Cupid L2 Fulfilment. Impossible ones get politely declined.",
-    notes: 5, first: 3, every: 18, goal: 450,
-    unlock: { triage: true, requests: true, l2: false }, types: ["incident", "request"], maxSev: 1,
-    story: [
-      { at: 3, type: "request", cat: "jealous", sev: 2, fulfil: false, from: "Totally Not Senior Cupid", place: "The Desk Next Door",
-        title: "Asking for a friend", text: "Hypothetically, could a Cupid use an arrow on someone they like? For a friend.",
-        detail: "The friend is very handsome and has a very large bow. Not me. A friend.",
-        reason: "Even Senior Cupids don't force feelings. Declined, 'friend'." }
-    ],
-    mails: [
-      { on: "start", from: "Cupid L2 Fulfilment", subject: "We deliver (mostly)",
-        body: "Hi L1!\n\nCakes, flowers, serenades, pigeon letters: send them our way and we'll handle it.\n\nWe do NOT do: love potions, cloning, memory wiping, or delivering people. Please stop sending us those.\n\n- L2 Fulfilment" },
-      { on: "end", from: "???", subject: "They are watching the desk",
-        body: "Something strange is happening in the pigeon coop.\n\nThey've started meeting at night. There are tiny clipboards.\n\nDon't tell Senior Cupid I told you." }
-    ]
-  },
-  {
-    title: "Shift 4: Call for Backup",
-    intro: "You can now escalate incidents to Cupid L2. They're good, but slower, and you get fewer points. You still own the LoveNote.",
-    notes: 5, first: 3, every: 16, goal: 520,
-    unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1,
-    mails: [
-      { on: "start", from: "Senior Cupid", subject: "Use L2 wisely",
-        body: "Some hearts are too heavy for one Cupid.\n\nIf a LoveNote is going badly, escalate it. L2 will do a (fictional) site visit. They usually fix it. Usually.\n\n- Senior Cupid" },
-      { on: "closed:3", from: "Heart Resources", subject: "Pigeon crumb budget",
-        body: "Due to rising crumb prices, each pigeon will now receive 4 crumbs per delivery instead of 5.\n\nWe do not expect any problems from this decision.\n\n- Heart Resources" }
-    ]
-  },
-  {
-    title: "Shift 5: Pigeon Storm",
-    intro: "The pigeons are unhappy and the LoveNotes are piling up. Stay calm. Keep hearts mended. Survive the storm.",
-    notes: 7, first: 2, every: 11, goal: 680,
-    unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1,
-    story: [
-      { at: 4, type: "request", cat: "food", sev: 1, fulfil: true, from: "Coo Coo, Pigeon Union Rep", place: "The Coop",
-        title: "Crumb demands", text: "WE WANT OUR FIFTH CRUMB BACK. No crumb, no deliveries. Coo.",
-        detail: "One crumb. That's all. One. Send it with L2 and the strike ends. Coo coo." }
-    ],
-    mails: [
-      { on: "start", from: "???", subject: "I warned you",
-        body: "The pigeons are on strike.\n\nSome are still flying, but they're dropping LoveNotes faster than ever to make a point.\n\nIf a union rep writes in... be nice." },
-      { on: "end", from: "Senior Cupid", subject: "You did it",
-        body: "The storm has passed. The pigeons have their fifth crumb. Hearts are (mostly) mended.\n\nYou're not a rookie anymore.\n\nThe story continues soon. Until then, the desk is open for Overtime.\n\n- Senior Cupid" }
-    ]
-  }
+/* ---------- time ---------- */
+const DAY_MINUTES = 12;          // real minutes in one in-game day
+const WORK_START = 9;            // in-game clock: 9:00 AM ...
+const WORK_END = 17;             // ... to 5:00 PM (clock out)
+
+/* ---------- the 7 days ----------
+   every / first: seconds between LoveNotes / until the first one.
+   goal: points for a good day report. unlock: desk features that are switched on. */
+const DAYS = [
+  { title: "Day 1: First Flight", intro: "Your first day at the Cupiddesk. Pick up LoveNotes, calm the lovers down, and survive until 5 PM.",
+    first: 4, every: 60, goal: 900, unlock: { triage: false, requests: false, l2: false }, types: ["incident"], maxSev: 2 },
+  { title: "Day 2: Pigeon Mail", intro: "Triage starts today. Set the Category and Heart condition before closing a LoveNote.",
+    first: 4, every: 52, goal: 1200, unlock: { triage: true, requests: false, l2: false }, types: ["incident"], maxSev: 1 },
+  { title: "Day 3: Requests Welcome", intro: "Requests (LNR numbers) arrive today. Fair ones go to L2 Fulfilment. Impossible ones get declined.",
+    first: 4, every: 48, goal: 1400, unlock: { triage: true, requests: true, l2: false }, types: ["incident", "request"], maxSev: 1 },
+  { title: "Day 4: Call for Backup", intro: "You can escalate incidents to Cupid L2 now. Slower, fewer points, usually works.",
+    first: 4, every: 45, goal: 1500, unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1 },
+  { title: "Day 5: Strange Orders", intro: "[PLACEHOLDER] The Goddess's mails are getting stranger. Keep the hearts mended. Keep your eyes open.",
+    first: 4, every: 42, goal: 1600, unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1 },
+  { title: "Day 6: Ruffled Feathers", intro: "[PLACEHOLDER] The pigeons are restless. The angel wants answers. The LoveNotes keep coming.",
+    first: 4, every: 40, goal: 1700, unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1 },
+  { title: "Day 7: Clock Out", intro: "[PLACEHOLDER] The last day. Whatever you've done this week, it all comes together at 5 PM.",
+    first: 4, every: 38, goal: 1800, unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1 }
 ];
 
-// After the last story shift, Overtime shifts repeat forever with everything unlocked.
-const OVERTIME = {
-  title: "Overtime",
-  intro: "Endless shifts. Every Overtime shift is a bit busier than the last. How long can you keep hearts mended?",
-  notes: 6, first: 2, every: 12, goal: 560,
-  unlock: { triage: true, requests: true, l2: true }, types: ["incident", "request"], maxSev: 1, mails: []
+/* ---------- who can send and receive mail ---------- */
+const PARTIES = {
+  goddess: { name: "The Love Goddess", e: "👑" },
+  angel:   { name: "Angel (High Realm)", e: "😇" },
+  pigeons: { name: "Pigeon Spy", e: "🐦" },
+  other:   { name: "", e: "✉️" }
 };
+
+/* ---------- NoFlight mail ----------
+   day / at: which day and how many real minutes into it (0 to 11).
+   party: who sent it. kind: what it counts as when forwarded:
+     "normal" = an ordinary Goddess mail, "sus" = a suspicious Goddess mail (real evidence),
+     "angel", "pigeon", "random" (noise).
+   needs: only arrives if "pigeonContact" or "angelContact" is unlocked.
+   sets: unlocks a contact when it arrives.
+   replies: buttons the Cupid can answer with. answer = optional mail that comes back. */
+const MAILS = [
+  { id: "g-welcome", day: 1, at: 0, party: "goddess", kind: "normal", from: "The Love Goddess", subject: "Welcome, little Cupid 💘",
+    body: "Welcome to the Cupiddesk, my dear Cupid!\n\nYou are now part of the most important work in the world: keeping hearts together. Work hard, mend hearts, and always remember who you work for.\n\nWith love (literally),\nThe Love Goddess",
+    replies: [{ text: "Thank you, Goddess! I'll do my best. 💘" }, { text: "Happy to be here!" }] },
+  { id: "r-hr1", day: 1, at: 3, party: "other", kind: "random", from: "Heart Resources", subject: "Reminder: wings must be worn",
+    body: "A friendly reminder that wings are part of the dress code.\n\nWe've received three complaints about Cupids working 'wingless'. You know who you are.\n\n- Heart Resources" },
+  { id: "r-senior1", day: 1, at: 7, party: "other", kind: "random", from: "Senior Cupid", subject: "tip from the desk next door",
+    body: "Hey rookie. Ask for details before you reply. People always say more than they mean to.\n\nAlso, don't read WorldArticlez during work. (Everyone reads WorldArticlez during work.)\n\n- Senior Cupid" },
+
+  { id: "r-spam1", day: 2, at: 1, party: "other", kind: "random", from: "Golden Arrow Prize Team", subject: "YOU WON a golden arrow!!!",
+    body: "Congratulations Cupid! You have won a GOLDEN ARROW. To claim it, simply send us 400 Heartcoins and your wing measurements.\n\n(This is obviously spam.)" },
+  { id: "a-first", day: 2, at: 7, party: "angel", kind: "angel", sets: "angelContact", from: "Angel (High Realm)", subject: "Confidential: a request for help",
+    body: "[PLACEHOLDER] Cupid,\n\nI am an angel sent by the High Realm. This message is confidential.\n\nTwo complaints have reached us. The Love Goddess says the pigeons are sabotaging her. The pigeons say their pay is too low and that she is doing something suspicious.\n\nI'm investigating both. You see everything that passes through the desk. If you notice anything strange, forward it to me.\n\nHelp me find an end to this.\n- A.",
+    replies: [{ text: "I'll keep my eyes open.", answer: { subject: "Re: Confidential", body: "[PLACEHOLDER] Thank you. Only send me real evidence. My time is limited." } },
+      { text: "Why me?", answer: { subject: "Re: Confidential", body: "[PLACEHOLDER] Because every LoveNote and every pigeon passes through your desk. Nobody notices Cupids." } }] },
+
+  { id: "g-compat", day: 3, at: 2, party: "goddess", kind: "sus", from: "The Love Goddess", subject: "NEW FEATURE: compatibility is optional",
+    body: "[PLACEHOLDER] To all Cupids,\n\nFrom today, please stop worrying about compatibility. If two hearts are near each other, match them. Faster matches = happier Goddess.\n\nDo not ask why.\n- The Love Goddess" },
+  { id: "p-spy1", day: 3, at: 5, party: "pigeons", kind: "pigeon", needs: "pigeonContact", from: "Pigeon Spy", subject: "coo. the coop is listening",
+    body: "[PLACEHOLDER] Cupid. Coo.\n\nShe's been sending orders to every Cupid. If you see anything weird, send it to us. We're keeping a file.\n\nDon't tell anyone about this address.\n- P.",
+    replies: [{ text: "What kind of weird?", answer: { subject: "Re: coo", body: "[PLACEHOLDER] Orders that don't make sense. Orders about money. Coo." } }, { text: "I'll think about it." }] },
+  { id: "r-news1", day: 3, at: 8, party: "other", kind: "random", from: "Cupid Weekly", subject: "This week's top 5 arrow-care tips",
+    body: "1. Keep them dry.\n2. Don't lend them to Senior Cupid.\n3. Never aim at pigeons.\n4. Polish weekly.\n5. See tip 2." },
+
+  { id: "g-pigeons", day: 4, at: 2, party: "goddess", kind: "sus", from: "The Love Goddess", subject: "ATTENTION: pigeons can't be trusted",
+    body: "[PLACEHOLDER] To all Cupids,\n\nThe pigeons are spreading lies about me. Do not talk to them. If a pigeon contacts you, forward it to me IMMEDIATELY.\n\nPigeons can't be trusted.\n- The Love Goddess" },
+  { id: "a-check1", day: 4, at: 6, party: "angel", kind: "angel", needs: "angelContact", from: "Angel (High Realm)", subject: "Any news?",
+    body: "[PLACEHOLDER] Cupid, anything to report? I need proof, not rumours.\n- A.",
+    replies: [{ text: "Not yet.", answer: { subject: "Re: Any news?", body: "[PLACEHOLDER] Keep watching." } }, { text: "I'm working on it." }] },
+  { id: "p-spy2", day: 4, at: 9, party: "pigeons", kind: "pigeon", needs: "pigeonContact", from: "Pigeon Spy", subject: "crumbs report",
+    body: "[PLACEHOLDER] 4 crumbs per delivery now. FOUR. Meanwhile someone upstairs bought a gold-plated bird bath. Coo.",
+    replies: [{ text: "That's unfair.", answer: { subject: "Re: crumbs", body: "[PLACEHOLDER] Finally, someone gets it. Coo." } }, { text: "Not my problem." }] },
+
+  { id: "g-buy", day: 5, at: 2, party: "goddess", kind: "sus", from: "The Love Goddess", subject: "From now on, every couple must buy this",
+    body: "[PLACEHOLDER] To all Cupids,\n\nFrom now on, every relationship you help must buy a Goddess-Approved Love Ring™ (only 999 Heartcoins).\n\nPush it. Every time. I'll be checking.\n- The Love Goddess" },
+  { id: "r-hr2", day: 5, at: 5, party: "other", kind: "random", from: "Heart Resources", subject: "Pigeon crumb budget",
+    body: "Due to rising crumb prices, each pigeon will now receive 4 crumbs per delivery instead of 5.\n\nWe do not expect any problems from this decision.\n- Heart Resources" },
+  { id: "a-check2", day: 5, at: 8, party: "angel", kind: "angel", needs: "angelContact", from: "Angel (High Realm)", subject: "The High Realm is getting impatient",
+    body: "[PLACEHOLDER] Cupid, the High Realm wants results. Send me anything real.\n- A." },
+
+  { id: "g-thanks", day: 6, at: 1, party: "goddess", kind: "normal", from: "The Love Goddess", subject: "Great work this week, Cupids",
+    body: "[PLACEHOLDER] Hearts are being mended. Rings are being sold. I am very pleased.\n\nKeep it up.\n- The Love Goddess" },
+  { id: "g-delete", day: 6, at: 5, party: "goddess", kind: "sus", from: "The Love Goddess", subject: "Delete pigeon mail without reading",
+    body: "[PLACEHOLDER] To all Cupids,\n\nPlease delete all mail from pigeons without reading it. Also, if anyone asks about the ring money, you don't know anything.\n- The Love Goddess" },
+  { id: "p-spy3", day: 6, at: 8, party: "pigeons", kind: "pigeon", needs: "pigeonContact", from: "Pigeon Spy", subject: "tomorrow",
+    body: "[PLACEHOLDER] Tomorrow is the big day, Cupid. Whose side are you on? Coo." },
+
+  { id: "g-final", day: 7, at: 2, party: "goddess", kind: "sus", from: "The Love Goddess", subject: "If the High Realm contacts you",
+    body: "[PLACEHOLDER] To all Cupids,\n\nIf anyone from the High Realm contacts you, do not reply. Forward it to me. Loyal Cupids will be rewarded.\n- The Love Goddess" },
+  { id: "a-final", day: 7, at: 6, party: "angel", kind: "angel", needs: "angelContact", from: "Angel (High Realm)", subject: "Last chance",
+    body: "[PLACEHOLDER] Cupid, I file my report at 5 PM today. Whatever you know, send it now.\n- A." }
+];
+
+/* ---------- the pigeon LoveNote ----------
+   From day 2, the pigeons write in as a LoveNote. If you refuse, they try again on later days
+   with a new message (one per attempt). Accepting gets you the Pigeon Spy's email. */
+const PIGEON_NOTE = {
+  minute: 2,   // minutes into the day when it arrives
+  attempts: [
+    { title: "Urgent coo", text: "[PLACEHOLDER] Psst. Cupid. This isn't a normal LoveNote. We're the pigeons. We need to talk." },
+    { title: "Please read this", text: "[PLACEHOLDER] It's us again. Coo. We carried 400 LoveNotes yesterday for 4 crumbs each. Please, just talk to us." },
+    { title: "Third time", text: "[PLACEHOLDER] Cupid. We know you read these. We're not leaving. Coo." },
+    { title: "Last try", text: "[PLACEHOLDER] This is our last LoveNote to you. After this we stop asking. Coo..." }
+  ],
+  choices: {
+    accept: "Okay. What's your email?",
+    why: "Why are you writing to a Cupid?",
+    refuse: "No. I'm not getting involved."
+  },
+  whyAnswer: "[PLACEHOLDER] Because you see everything. Every LoveNote passes your desk before it goes anywhere. And something is wrong upstairs. Coo.",
+  acceptAnswer: "[PLACEHOLDER] Good Cupid. Watch your NoFlight inbox. Our spy will write to you. Coo coo.",
+  refuseAnswer: "[PLACEHOLDER] ...fine. Coo.",
+  // the mail you get from the Pigeon Spy right after accepting
+  spyMail: { subject: "coo. it's me", body: "[PLACEHOLDER] Cupid. This is the Pigeon Spy. You can reach the coop here now. Forward us anything strange from upstairs. Coo.",
+    replies: [{ text: "What's going on?", answer: { subject: "Re: coo", body: "[PLACEHOLDER] Not here. Not yet. Watch her mails. Coo." } }, { text: "Got it." }] }
+};
+
+/* ---------- forwarding ----------
+   Forward any mail to the angel, the Goddess or the pigeons. Each reacts differently.
+   effect: what it counts toward.
+     evidence = real proof for the angel, support = helping the pigeons,
+     loyal = loyalty to the Goddess, annoyAngel / annoyGoddess = spam,
+     frustrate = annoys the pigeons (harmless). */
+const FORWARD = {
+  angel: {
+    sus:    { effect: "evidence",   body: "[PLACEHOLDER] This... this is useful. I'm adding it to the report. Keep going. - A." },
+    normal: { effect: "annoyAngel", body: "[PLACEHOLDER] This is a normal work email. Are you fooling me, Cupid? - A." },
+    pigeon: { effect: "annoyAngel", body: "[PLACEHOLDER] A pigeon's word isn't proof. I need something from HER. - A." },
+    angel:  { effect: "annoyAngel", body: "[PLACEHOLDER] ...you sent me my own email. - A." },
+    random: { effect: "annoyAngel", body: "[PLACEHOLDER] I'm investigating a goddess. Why are you sending me this? - A." }
+  },
+  goddess: {
+    pigeon: { effect: "loyal",        body: "[PLACEHOLDER] Thank you for telling me, dear Cupid. Keep monitoring them for me. 💘" },
+    angel:  { effect: "loyal",        body: "[PLACEHOLDER] An angel? Interesting. Ignore them. And keep monitoring. 💘" },
+    sus:    { effect: "annoyGoddess", body: "[PLACEHOLDER] Why are you sending me my own email?" },
+    normal: { effect: "annoyGoddess", body: "[PLACEHOLDER] Why are you sending me my own email?" },
+    random: { effect: "annoyGoddess", body: "[PLACEHOLDER] I am a GODDESS. Do not forward me junk." }
+  },
+  pigeons: {
+    sus:    { effect: "support",   body: "[PLACEHOLDER] COO. This goes in the file. Thank you, Cupid." },
+    normal: { effect: "frustrate", body: "[PLACEHOLDER] That's just a normal email. Coo..." },
+    angel:  { effect: "frustrate", body: "[PLACEHOLDER] mmm. An angel. Interesting. Coo." },
+    pigeon: { effect: "frustrate", body: "[PLACEHOLDER] We sent you this. Coo??" },
+    random: { effect: "frustrate", body: "[PLACEHOLDER] Why. Coo." }
+  }
+};
+
+/* ---------- limits and endings ---------- */
+const LIMITS = {
+  angelSpam: 4,      // useless forwards to the angel before you're arrested
+  goddessSpam: 3,    // useless forwards to the Goddess before you're fired
+  angelWin: 3,       // suspicious Goddess mails sent to the angel to win
+  pigeonWin: 3       // suspicious Goddess mails sent to the pigeons for the pigeon ending
+};
+const WARNINGS = {
+  annoyAngel: "[PLACEHOLDER] Cupid. One more pointless email and I'll start wondering whose side you're on. - A.",
+  annoyGoddess: "[PLACEHOLDER] Stop filling my inbox, Cupid. My patience is not eternal, even if I am.",
+  frustrate: "[PLACEHOLDER] COO. Stop sending us random stuff."
+};
+const ENDINGS = {
+  angel:    { e: "😇", title: "Ending: The Report", body: "[PLACEHOLDER] You helped the angel. The High Realm reads the report, and the Love Goddess is caught. The Cupiddesk is under new management. You finally clock out." },
+  pigeons:  { e: "🐦", title: "Ending: Feathers Fly", body: "[PLACEHOLDER] You helped the pigeons. The Goddess finds out, terminates your contract, and hands you over to the angels." },
+  neutral:  { e: "⛓️", title: "Ending: Just Doing My Job", body: "[PLACEHOLDER] You kept your head down and worked until the end. The angel arrests you for not supporting the investigation." },
+  spamAngel:   { e: "🚨", title: "Ending: Inbox Overload", body: "[PLACEHOLDER] You flooded the angel's inbox one too many times. They arrest you for wasting the High Realm's time." },
+  spamGoddess: { e: "📦", title: "Ending: Fired", body: "[PLACEHOLDER] You flooded the Goddess's inbox one too many times. You're fired. Please return your wings." }
+};
+
+/* ---------- WorldArticlez (in-game browser) ----------
+   day: the first day an article appears. */
+const ARTICLES = [
+  { day: 1, title: "Cupiddesk reaches sky high", body: "[PLACEHOLDER] The Love Goddess's Cupiddesk is mending more hearts than ever, according to the Love Goddess." },
+  { day: 1, title: "Pigeons say they need more than crumbs (literally??)", body: "[PLACEHOLDER] Pigeon mail volumes have dropped as lovers move to texting. The pigeons say crumbs no longer pay the bills." },
+  { day: 2, title: "Pigeon CEO owns 3 bowls in this economy", body: "[PLACEHOLDER] While delivery pigeons get 4 crumbs, the Pigeon CEO was spotted with not one, not two, but THREE bowls." },
+  { day: 3, title: "Cupid pay rates drop", body: "[PLACEHOLDER] Cupids report smaller Heartcoin payouts this month. The Goddess's office declined to comment." },
+  { day: 4, title: "Pigeon pay hits record low as lovers go digital", body: "[PLACEHOLDER] 'Nobody writes letters anymore,' said one pigeon, sadly eating a crumb." },
+  { day: 5, title: "Goddess-Approved Love Rings™ sell out", body: "[PLACEHOLDER] Couples everywhere are suddenly buying the same ring. Experts are confused." },
+  { day: 6, title: "High Realm 'looking into' love industry", body: "[PLACEHOLDER] A High Realm spokesperson confirmed nothing and denied nothing." }
+];
+
+/* ---------- search: most words are restricted, a few open hidden pages ----------
+   keys: words that open the page (lowercase). */
+const HIDDEN_PAGES = [
+  { keys: ["cupiddesk", "history", "origin", "goddess"], title: "Why the Cupiddesk exists", body: "[PLACEHOLDER: the story of why the Love Goddess built the Cupiddesk]" },
+  { keys: ["pigeon ceo", "ceo", "pigeon"], title: "The Pigeon CEO's most embarrassing moment", body: "[PLACEHOLDER: an embarrassing story about the Pigeon CEO]" },
+  { keys: ["high realm", "angel", "policy", "policies"], title: "High Realm: new administration policies", body: "[PLACEHOLDER: the High Realm's new administration policies and jobs]\n\nLooking for work? Try PayToWork.", link: "paytowork" },
+  { keys: ["paytowork", "job", "jobs"], title: "PayToWork", paytowork: true, body: "You pay us, we find you a job. Any job. No refunds. 100% random." }
+];
+const PAYTOWORK_COST = 20;
+const PAYTOWORK_JOBS = [
+  "Professional cloud fluffer", "Rainbow colour checker (only checks blue)", "Assistant to the assistant pigeon",
+  "Halo polisher, night shift", "Official sniffer of love letters", "Lighthouse for lost butterflies",
+  "Trainee thunder (quiet department)", "Moon nap supervisor", "Senior Cupid's personal bow carrier"
+];
+
+/* ---------- Cupid Shop (coming soon) ---------- */
+const SHOP_ITEMS = [
+  { name: "Fancy wings", e: "🪽", price: 120 },
+  { name: "Golden arrow (real one)", e: "🏹", price: 300 },
+  { name: "Desk plant (not Gerald)", e: "🪴", price: 60 },
+  { name: "Extra crumbs for the pigeons", e: "🍞", price: 40 }
+];

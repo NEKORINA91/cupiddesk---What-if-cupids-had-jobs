@@ -6,12 +6,13 @@ const NOTICE = "Fictional parody game · not real advice · not affiliated with 
 const WIN = {
   cupiddesk: { t: "Cupiddesk", i: "💘", w: 940, h: 620 },
   chart:     { t: "Heart status", i: "🥧", w: 270, h: null, right: true },
-  mailbox:   { t: "Mailbox", i: "📬", w: 600, h: 420 },
-  browser:   { t: "Cloudy Search", i: "🌐", w: 540, h: null },
+  mailbox:   { t: "NoFlight Mail", i: "✉️", w: 700, h: 580 },
+  browser:   { t: "Browser", i: "🌐", w: 580, h: 520 },
+  shop:      { t: "Cupid Shop", i: "🛍️", w: 420, h: null },
   trash:     { t: "Trash", i: "🗑️", w: 340, h: null },
   about:     { t: "About Cupid OS", i: "ℹ️", w: 520, h: null }
 };
-let ui = { open: [], pos: {}, z: 10, sel: null, tab: "queue", mailSel: null, search: null, booted: false, last: Date.now(), msg: null };
+let ui = { open: [], pos: {}, z: 10, sel: null, tab: "queue", mailSel: null, search: null, booted: false, last: Date.now(), page: null, article: 0, job: null };
 
 /* ---------- small helpers ---------- */
 function fmt(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
@@ -25,7 +26,7 @@ function toast(msg, kind) {
 }
 function mailPop(m) {
   const p = document.createElement("button"); p.className = "pop";
-  p.innerHTML = `<span class="pop-i">📬</span><span><b>${esc(m.from)}</b><br>${esc(m.subject)}</span>`;
+  p.innerHTML = `<span class="pop-i">${(PARTIES[m.party] || PARTIES.other).e}</span><span><b>${esc(m.from)}</b><br>${esc(m.subject)}</span>`;
   p.onclick = () => { ui.mailSel = m.key; readMail(m.key); openWin("mailbox"); render(); p.remove(); };
   document.body.appendChild(p); setTimeout(() => p.remove(), 9000);
 }
@@ -58,6 +59,7 @@ const SFX = {
   closed: () => beep([[523, .1], [659, .1], [784, .1], [1047, .25]], "triangle"),
   broken: () => beep([[392, .2], [330, .2], [262, .35]], "sawtooth"),
   mail: () => beep([[988, .08], [1319, .12]]),
+  ending: () => beep([[392, .3], [523, .3], [659, .3], [784, .6]], "triangle"),
   shiftEnd: () => beep([[523, .15], [659, .15], [784, .15], [1047, .4]], "triangle")
 };
 
@@ -103,9 +105,9 @@ function head() {
   const r = rating();
   return `<div class="cd-head">
     <div class="brand"><span class="logo">💘</span><div><b>Cupiddesk</b><small>${esc(game.cupid.name)} · ${esc(game.cupid.id)}</small></div></div>
-    <div class="hd-shift"><small>${isStory() ? "Story" : "Endless"}</small><b>${esc(d.title)}</b></div>
-    ${running ? `<div class="hd-goal"><div class="row sb"><small>Shift points</small><small><b>${pts}</b> / ${d.goal}</small></div><div class="bar goal"><i style="width:${pct}%"></i></div></div>` : '<div class="hd-goal"></div>'}
-    <div class="hd-rate" title="Cupid rating (last 20 LoveNotes)"><small>Rating</small><span class="stars">${r ? stars(r) : "☆☆☆☆☆"}</span></div>
+    <div class="hd-shift"><small>Day ${Math.min(game.day, DAYS.length)} of ${DAYS.length}</small><b>${running ? `🕘 <span data-hour>${gameHour()}</span>` : esc(d.title.split(": ")[1] || d.title)}</b></div>
+    ${running ? `<div class="hd-goal"><div class="row sb"><small>Today's points</small><small><b>${pts}</b> / ${d.goal}</small></div><div class="bar goal"><i style="width:${pct}%"></i></div><div class="bar day"><i data-daybar></i></div></div>` : '<div class="hd-goal"></div>'}
+    <div class="hd-rate" title="Cupid rating (last 20 LoveNotes)"><small>🪙 ${game.coins} · Rating</small><span class="stars">${r ? stars(r) : "☆☆☆☆☆"}</span></div>
     ${running ? `<button class="btn ghost sm" data-act="pause">${game.paused ? "▶ Resume" : "⏸ Pause"}</button>` : ""}
   </div>`;
 }
@@ -115,7 +117,7 @@ function welcomeView() {
     <div class="bc-top"><span>CUPIDDESK</span><span>STAFF BADGE</span></div>
     <div class="bc-photo">🏹</div>
     <h2>Welcome, new Cupid</h2>
-    <p class="muted">Hearts are breaking all over Puddingham, and the desk needs you. Write a name for your badge (or don't, Rookie).</p>
+    <p class="muted">The Love Goddess needs more Cupids. Seven days, 9 to 5, mending hearts. Write a name for your badge (or don't, Rookie).</p>
     <input id="w-name" maxlength="20" placeholder="Rookie Cupid" data-keep autocomplete="off">
     <button class="btn primary big" data-act="clockin">Clock in 💘</button>
     <p class="tiny">${esc(NOTICE)}. Saved only in this browser.</p>
@@ -124,52 +126,63 @@ function welcomeView() {
 
 function shiftCard() {
   const d = shiftDef(), u = d.unlock;
-  const chap = isStory() ? `Chapter ${game.shiftIndex + 1} of ${SHIFTS.length}` : "Overtime";
   const feat = (on, t) => `<span class="feat${on ? " on" : ""}">${on ? "✓" : "🔒"} ${t}</span>`;
   return `<div class="center-screen"><div class="shift-card">
-    <div class="kicker">${chap}</div>
+    <div class="kicker">Day ${game.day} of ${DAYS.length}</div>
     <h1>${esc(d.title)}</h1>
     <p>${esc(d.intro)}</p>
-    <div class="sc-stats"><div><b>${d.notes}</b><small>LoveNotes</small></div><div><b>${d.goal}</b><small>points to pass</small></div><div><b>${game.history.length}</b><small>shifts worked</small></div></div>
+    <div class="sc-stats"><div><b>9–5</b><small>${DAY_MINUTES} real minutes</small></div><div><b>${d.goal}</b><small>points for a good day</small></div><div><b>🪙 ${game.coins}</b><small>Heartcoins</small></div></div>
     <div class="feats">${feat(true, "Chat & mend")}${feat(u.triage, "Triage")}${feat(u.requests, "Requests")}${feat(u.l2, "Escalate to L2")}</div>
-    <button class="btn primary big" data-act="start">Start shift</button>
+    <button class="btn primary big" data-act="start">Clock in for Day ${game.day}</button>
     <details class="howto"><summary>How to play</summary><ol>
-      <li>A pigeon drops a LoveNote in your queue. <b>LNI</b> numbers are Incidents (something went wrong). <b>LNR</b> numbers are Requests (someone wants something).</li>
-      <li>Pick it up. The Heartbreak Timer starts. Near-break notes have the least time.</li>
-      <li>Ask for details, then choose replies that fit the problem. Good replies raise <b>Calm</b>.</li>
-      <li>At ${CALM_TO_PATCH}% Calm you can patch it. At ${CALM_TO_MEND}% you can fully mend it. The faster, the more points.</li>
-      ${u.triage ? "<li>Set the Category and Heart condition before closing. Right guesses earn bonus points.</li>" : ""}
+      <li>Pigeons drop LoveNotes in your queue all day. <b>LNI</b> = Incident (something went wrong), <b>LNR</b> = Request (someone wants something).</li>
+      <li>Pick one up. Its Heartbreak Timer starts. Near-break notes have the least time.</li>
+      <li>Ask for details, then choose replies that fit the problem. Good replies raise <b>Calm</b>. Patch at ${CALM_TO_PATCH}%, mend at ${CALM_TO_MEND}%.</li>
+      ${u.triage ? "<li>Set the Category and Heart condition before closing for bonus points.</li>" : ""}
       ${u.requests ? "<li>Requests: send fair ones to L2 Fulfilment, decline impossible ones.</li>" : ""}
-      ${u.l2 ? "<li>Stuck? Escalate an incident to Cupid L2. Slower, fewer points, usually works.</li>" : ""}
+      ${u.l2 ? "<li>Stuck? Escalate an incident to Cupid L2.</li>" : ""}
+      <li>Check your <b>NoFlight</b> mail. You can reply, and you can <b>forward</b> mail to people. What you forward, and to whom, decides how your week ends. Don't spam.</li>
       <li>Keys 1 to 4 send replies. D asks for details.</li>
     </ol></details>
   </div></div>`;
 }
 
 function reportView() {
-  const r = game.shift.report, last = isStory() && game.shiftIndex === SHIFTS.length - 1;
+  const r = game.shift.report, last = isLastDay();
   return `<div class="center-screen"><div class="shift-card report">
-    <div class="kicker">Shift report</div>
+    <div class="kicker">Clocked out · Day ${game.day} report</div>
     <h1>${esc(r.title)}</h1>
     <div class="grade g-${r.grade}">${r.grade}</div>
-    <p class="big-num"><b>${r.points}</b> / ${r.goal} points · ${r.passed ? "Passed 🎉" : "Not quite. Senior Cupid is watching. 👀"}</p>
+    <p class="big-num"><b>${r.points}</b> / ${r.goal} points · earned 🪙 ${r.earned}</p>
     <table class="rtable"><tr><th>LoveNote</th><th>Result</th><th>Pts</th></tr>
       ${r.rows.map((x) => `<tr><td><span class="num">${esc(x.num)}</span> ${esc(x.title)}</td><td>${RESOLUTION[x.res].e} ${esc(RESOLUTION[x.res].label)}</td><td class="${x.points < 0 ? "neg" : "pos"}">${x.points > 0 ? "+" : ""}${x.points}</td></tr>`).join("")}
     </table>
-    <div class="row center">
-      ${r.passed ? `<button class="btn primary big" data-act="next">${last ? "Go to Overtime" : isStory() ? "Next shift →" : "Next Overtime →"}</button><button class="btn ghost" data-act="retry">Replay shift</button>`
-        : `<button class="btn primary big" data-act="retry">Try again</button><button class="btn ghost" data-act="next">Skip ahead</button>`}
-    </div>
+    <p class="muted tiny">You can still read and forward NoFlight mail before the next day.</p>
+    <div class="row center"><button class="btn primary big" data-act="next">${last ? "Clock out for good…" : "Go home, sleep, Day " + (game.day + 1) + " →"}</button></div>
+  </div></div>`;
+}
+
+function endingView() {
+  const e = ENDINGS[game.ending], st = game.story.stats;
+  return `<div class="center-screen"><div class="shift-card ending">
+    <div class="kicker">The end</div>
+    <div class="ending-e">${e.e}</div>
+    <h1>${esc(e.title)}</h1>
+    <p>${esc(e.body)}</p>
+    <div class="sc-stats"><div><b>${game.totals.mended}</b><small>hearts mended</small></div><div><b>${game.totals.points}</b><small>total points</small></div><div><b>${game.history.length}</b><small>days worked</small></div></div>
+    <p class="muted tiny">Evidence to the angel: ${st.evidence} · Help to the pigeons: ${st.support} · Reports to the Goddess: ${st.loyal}</p>
+    <p class="muted tiny">There are ${Object.keys(ENDINGS).length} endings. Can you find them all?</p>
+    <button class="btn primary big" data-act="newgame">Start a new week</button>
   </div></div>`;
 }
 
 function listCard(n) {
-  const sel = ui.sel === n.id, pr = n.triage.sev ? PRIORITY[n.triage.sev].short : "?";
+  const sel = ui.sel === n.id, pr = n.special ? "🐦 ???" : n.triage.sev ? PRIORITY[n.triage.sev].short : "?";
   return `<button class="lcard st-${n.state}${sel ? " sel" : ""}${n.story ? " story" : ""}" data-act="select" data-id="${n.id}">
-    <div class="row sb"><span class="num">${esc(n.num)}</span><span class="pchip p${n.triage.sev || 0}">${pr}</span></div>
+    <div class="row sb"><span class="num">${esc(n.num)}</span><span class="pchip p${n.special ? 0 : n.triage.sev || 0}">${pr}</span></div>
     <div class="lc-title">${esc(n.title)}</div>
-    <div class="row sb lc-meta"><span>${avatar(n.from)} ${esc(n.from.split(" ")[0])}</span>
-      ${n.state === "Pending" ? `<span class="mini-timer" data-timer="${n.id}"></span>` : n.state === "Closed" ? `<span>${RESOLUTION[n.resolution].e}</span>` : n.state === "Escalated" ? "<span>🏹</span>" : '<span class="dot-new"></span>'}</div>
+    <div class="row sb lc-meta"><span>${n.special ? "🐦" : avatar(n.from)} ${esc(n.from.split(" ")[0])}</span>
+      ${n.state === "Pending" && !n.special ? `<span class="mini-timer" data-timer="${n.id}"></span>` : n.state === "Closed" ? `<span>${RESOLUTION[n.resolution].e}</span>` : n.state === "Escalated" ? "<span>🏹</span>" : '<span class="dot-new"></span>'}</div>
   </button>`;
 }
 
@@ -178,11 +191,10 @@ function listPane() {
   const tabs = [["queue", "New", (n) => n.state === "New"], ["mine", "Mine", (n) => n.state === "Pending"], ["l2", "L2", (n) => n.state === "Escalated"], ["done", "Done", (n) => n.state === "Closed"]];
   const cur = tabs.find((t) => t[0] === ui.tab) || tabs[0];
   const list = all.filter(cur[2]);
-  const s = game.shift, d = shiftDef(), left = d.notes - s.delivered;
   return `<div class="cd-list">
     <div class="tabs">${tabs.map((t) => { const c = all.filter(t[2]).length; return `<button class="tab${t[0] === cur[0] ? " on" : ""}" data-act="tab" data-t="${t[0]}">${t[1]}${c ? `<span class="tc">${c}</span>` : ""}</button>`; }).join("")}</div>
-    <div class="lscroll" data-scroll="list">${list.map(listCard).join("") || `<div class="empty-s">${cur[0] === "queue" ? (left > 0 ? "🕊️ Waiting for pigeons..." : "Queue is empty") : "Nothing here"}</div>`}</div>
-    <div class="incoming">${left > 0 ? `🕊️ ${left} more LoveNote${left > 1 ? "s" : ""} on the way` : "✓ All LoveNotes delivered"}</div>
+    <div class="lscroll" data-scroll="list">${list.map(listCard).join("") || `<div class="empty-s">${cur[0] === "queue" ? "🕊️ Waiting for pigeons..." : "Nothing here"}</div>`}</div>
+    <div class="incoming">${deskOpen() ? "🕊️ Pigeons are flying in all day" : "🌙 No more LoveNotes today. Almost 5 PM!"}</div>
   </div>`;
 }
 
@@ -190,12 +202,13 @@ function chatHtml(n) {
   return n.chat.map((m) => {
     const me = m.who === "cupid", l2 = m.who === "l2";
     const name = me ? "You" : l2 ? "Cupid L2" : n.from;
-    const av = me ? "💘" : l2 ? "🏹" : avatar(n.from);
+    const av = me ? "💘" : l2 ? "🏹" : n.special ? "🐦" : avatar(n.from);
     return `<div class="msg-row${me ? " me" : ""}${l2 ? " l2" : ""}"><span class="av">${av}</span><div><div class="who">${esc(name)}</div><div class="bubble">${esc(m.text)}</div></div></div>`;
   }).join("");
 }
 
 function fieldsHtml(n) {
+  if (n.special) return `<div class="fields"><label><small>Type</small><span>❓ Unknown</span></label><label><small>Category</small><span class="muted">Doesn't fit any</span></label><label><small>Heart condition</small><span class="muted">???</span></label><label><small>Sender</small><span>🐦 ${esc(n.from)}</span></label></div>`;
   const editable = n.state === "Pending" && feature("triage");
   const catSel = editable ? `<select data-act-change="cat" data-id="${n.id}"><option value="">Choose...</option>${Object.keys(CATS).map((k) => `<option value="${k}"${n.triage.cat === k ? " selected" : ""}>${CATS[k].e} ${CATS[k].label}</option>`).join("")}</select>`
     : n.triage.cat ? `<span>${CATS[n.triage.cat].e} ${CATS[n.triage.cat].label}</span>` : `<span class="muted">Not set</span>`;
@@ -219,7 +232,14 @@ function detailPane() {
   if (n.state === "New") {
     body = `<div class="preview"><div class="bubble big">${esc(n.text)}</div></div>
       <button class="btn primary big" data-act="pickup">Pick up LoveNote</button>
-      <p class="muted tiny center">Picking up starts the Heartbreak Timer.</p>`;
+      <p class="muted tiny center">${n.special ? "This one looks... different." : "Picking up starts the Heartbreak Timer."}</p>`;
+  } else if (n.state === "Pending" && n.special === "pigeon") {
+    const c = PIGEON_NOTE.choices;
+    body = `<div class="chat" id="chat">${chatHtml(n)}</div>
+      <div class="composer story-choices"><small class="muted">How do you answer?</small><div class="opts one">
+        <button class="opt" data-act="pchoice" data-c="accept">🤝 ${esc(c.accept)}</button>
+        ${n.askedWhy ? "" : `<button class="opt" data-act="pchoice" data-c="why">❓ ${esc(c.why)}</button>`}
+        <button class="opt" data-act="pchoice" data-c="refuse">🙅 ${esc(c.refuse)}</button></div></div>`;
   } else if (n.state === "Pending") {
     const req = n.type === "request", u = shiftDef().unlock;
     const triageMissing = feature("triage") && !triageDone(n);
@@ -245,8 +265,8 @@ function detailPane() {
   } else {
     const R = RESOLUTION[n.resolution];
     const right = (a, b) => a === b ? "✓" : "✗";
-    body = `<div class="res-card ${n.points < 0 ? "bad" : "ok"}"><span class="res-e">${R.e}</span><div><b>${esc(R.label)}</b><div class="muted">${n.points >= 0 ? "+" : ""}${n.points} points · ${stars(n.stars)}</div>
-      ${feature("triage") ? `<div class="tiny">Category: ${CATS[n.cat].e} ${CATS[n.cat].label} ${right(n.triage.cat, n.cat)} · Condition: ${PRIORITY[n.sev].e} ${PRIORITY[n.sev].label} ${right(n.triage.sev, n.sev)}</div>` : ""}</div></div>
+    body = `<div class="res-card ${n.points < 0 ? "bad" : "ok"}"><span class="res-e">${R.e}</span><div><b>${esc(R.label)}</b>${R.special ? "" : `<div class="muted">${n.points >= 0 ? "+" : ""}${n.points} points · ${stars(n.stars)}</div>`}
+      ${feature("triage") && !R.special ? `<div class="tiny">Category: ${CATS[n.cat].e} ${CATS[n.cat].label} ${right(n.triage.cat, n.cat)} · Condition: ${PRIORITY[n.sev].e} ${PRIORITY[n.sev].label} ${right(n.triage.sev, n.sev)}</div>` : ""}</div></div>
       <div class="chat" id="chat">${chatHtml(n)}</div>`;
   }
   return `<div class="cd-detail">
@@ -262,7 +282,7 @@ function deskApp() {
   if (!game.cupid) return welcomeView();
   if (!game.shift) introShift();
   const s = game.shift;
-  const inner = s.status === "intro" ? shiftCard() : s.status === "report" ? reportView()
+  const inner = s.status === "ending" ? endingView() : s.status === "intro" ? shiftCard() : s.status === "report" ? reportView()
     : `<div class="cd-work${ui.sel ? " has-sel" : ""}">${listPane()}${detailPane()}</div>${game.paused ? `<div class="paused"><div><div class="big-e">⏸</div><b>Paused</b><p class="muted">The pigeons are taking a nap.</p><button class="btn primary" data-act="pause">Resume</button></div></div>` : ""}`;
   return `<div class="cd">${head()}<div class="cd-body">${inner}</div></div>`;
 }
@@ -273,29 +293,60 @@ function chartWin() {
   const total = c.New + c.Pending + c.Escalated;
   let acc = 0;
   const grad = total ? segs.map((s) => { const a = acc; acc += s[1] / total * 360; return `${s[2]} ${a}deg ${acc}deg`; }).join(",") : "var(--soft) 0deg 360deg";
-  const s = game.shift, done = shiftNotes().filter((n) => n.state === "Closed");
+  const s = game.shift, done = shiftNotes().filter((n) => n.state === "Closed" && !RESOLUTION[n.resolution].special);
   const good = done.filter((n) => n.points > 0).length, bad = done.length - good;
   return `<div class="page chart">
     <div class="donut" style="background:conic-gradient(${grad})"><div><b>${total}</b><small>open</small></div></div>
     ${segs.map((x) => `<div class="legend"><span class="dot" style="background:${x[2]}"></span>${x[0]}<b>${x[1]}</b></div>`).join("")}
-    <hr><div class="legend">💘 Mended this shift<b>${good}</b></div><div class="legend">💔 Broken this shift<b>${bad}</b></div>
-    <div class="legend">⭐ Shift points<b>${s && s.points != null ? s.points : 0}</b></div>
+    <hr><div class="legend">💘 Mended today<b>${good}</b></div><div class="legend">💔 Broken today<b>${bad}</b></div>
+    <div class="legend">⭐ Points today<b>${s && s.points != null ? s.points : 0}</b></div>
     <hr><div class="legend tiny">All-time hearts mended<b>${game.totals.mended}</b></div>
   </div>`;
 }
 
 function mailWin() {
   const list = game.mails.slice().reverse(), m = game.mails.find((x) => x.key === ui.mailSel);
-  return `<div class="mailwrap"><div class="mail-list" data-scroll="mail">${list.map((x) => `<button class="mail${x.read ? "" : " unread"}${ui.mailSel === x.key ? " sel" : ""}" data-act="mail" data-k="${x.key}"><b>${esc(x.from)}</b><span>${esc(x.subject)}</span></button>`).join("") || '<div class="empty-s">No mail yet</div>'}</div>
-    <div class="mail-read">${m ? `<h3>${esc(m.subject)}</h3><div class="muted tiny">From: ${esc(m.from)}</div><div class="mail-body">${esc(m.body)}</div>` : '<div class="empty-s">Pick a mail to read</div>'}</div></div>`;
+  let read = '<div class="empty-s">Pick a mail to read</div>';
+  if (m) {
+    const p = PARTIES[m.party] || PARTIES.other;
+    const replies = m.replies && m.replies.length ? (m.replied == null
+      ? `<div class="mail-actions"><small class="muted">Reply</small><div class="row">${m.replies.map((r, i) => `<button class="btn soft sm" data-act="mreply" data-i="${i}">↩ ${esc(r.text)}</button>`).join("")}</div></div>`
+      : `<div class="sent">↩ You replied: “${esc(m.replies[m.replied].text)}”</div>`) : "";
+    const fwdBtn = (party, label) => canForwardTo(party)
+      ? `<button class="btn sm ${m.fwd.includes(party) ? "ghost" : "soft"}" data-act="fwd" data-p="${party}"${m.fwd.includes(party) || game.ending ? " disabled" : ""}>${PARTIES[party].e} ${label}${m.fwd.includes(party) ? " ✓" : ""}</button>` : "";
+    read = `<div class="mail-head"><span class="mail-av">${p.e}</span><div><h3>${esc(m.subject)}</h3><div class="muted tiny">From: ${esc(m.from)} · Day ${m.day}</div></div></div>
+      <div class="mail-body">${esc(m.body)}</div>${replies}
+      <div class="mail-actions"><small class="muted">Forward to</small><div class="row">${fwdBtn("angel", "Angel")}${fwdBtn("goddess", "Goddess")}${fwdBtn("pigeons", "Pigeons")}</div></div>`;
+  }
+  return `<div class="mailwrap"><div class="mail-list" data-scroll="mail"><div class="nf-logo">✉️ NoFlight <small>mail without wings</small></div>${list.map((x) => `<button class="mail${x.read ? "" : " unread"}${ui.mailSel === x.key ? " sel" : ""}" data-act="mail" data-k="${x.key}"><b>${(PARTIES[x.party] || PARTIES.other).e} ${esc(x.from)}</b><span>${esc(x.subject)}</span></button>`).join("") || '<div class="empty-s">No mail yet</div>'}</div>
+    <div class="mail-read" data-scroll="mailread">${read}</div></div>`;
 }
 
+function findHidden(q) {
+  const s = q.toLowerCase().trim();
+  return HIDDEN_PAGES.find((p) => p.keys.some((k) => s === k || s.includes(k)));
+}
 function browserWin() {
-  const q = ui.search;
-  const res = q ? `<h3>Results for "${esc(q)}"</h3>${SEARCH_TEMPLATES.map((t) => `<div class="hl"><a>${esc(t.replace("%q%", q))}</a><small>cupid://news/${Math.random().toString(36).slice(2, 8)}</small></div>`).join("")}`
-    : `<h3>Today's top stories</h3>${HEADLINES.map((h) => `<div class="hl"><a>${esc(h)}</a><small>Cloudy News</small></div>`).join("")}`;
-  return `<div class="page"><div class="search-logo">☁️ Cloudy</div><div class="row"><input id="q" maxlength="60" placeholder="Search the Cloud" value="${esc(q || "")}" data-keep><button class="btn primary" data-act="search">Search</button></div>
-    <p class="tiny muted">cupid://search (a fictional, pretend internet)</p>${res}</div>`;
+  const bar = (addr) => `<div class="addr"><button class="btn ghost sm" data-act="home" title="Home">🏠</button><input id="q" maxlength="60" placeholder="Search WorldArticlez" value="${esc(ui.search || "")}" data-keep><button class="btn primary sm" data-act="search">Search</button></div><div class="tiny muted url">${esc(addr)}</div>`;
+  if (ui.page === "article") {
+    const a = ARTICLES[ui.article];
+    return `<div class="page">${bar("worldarticlez://news/" + ui.article)}<div class="wa-art"><div class="kicker">WorldArticlez</div><h2>${esc(a.title)}</h2><p>${esc(a.body)}</p><button class="btn ghost sm" data-act="home">← All articles</button></div></div>`;
+  }
+  if (ui.page === "search") {
+    const h = findHidden(ui.search || "");
+    if (!h) return `<div class="page">${bar("worldarticlez://search?q=" + (ui.search || ""))}<div class="restricted"><div class="big-e">🔒</div><h3>Restricted access</h3><p class="muted">Your Cupid clearance doesn't allow this search. This attempt has (not really) been reported to the Goddess.</p></div></div>`;
+    const ptw = h.paytowork ? `<div class="ptw"><p>Cost: 🪙 ${PAYTOWORK_COST}. You have 🪙 ${game.coins}.</p><button class="btn primary" data-act="ptw"${game.coins < PAYTOWORK_COST ? " disabled" : ""}>🎰 Pay and spin for a job</button>${ui.job ? `<div class="job">Your new job: <b>${esc(ui.job)}</b></div>` : ""}${game.jobs.length ? `<p class="tiny muted">Jobs won so far: ${game.jobs.map(esc).join(", ")}</p>` : ""}</div>` : "";
+    return `<div class="page">${bar("worldarticlez://hidden/" + h.keys[0].replace(/ /g, "-"))}<div class="wa-art hidden-page"><div class="kicker">🔓 Hidden page</div><h2>${esc(h.title)}</h2><p>${esc(h.body)}</p>${h.link ? `<button class="btn soft sm" data-act="goto" data-q="${h.link}">Open ${esc(h.link)} →</button>` : ""}${ptw}</div></div>`;
+  }
+  const list = ARTICLES.map((a, i) => [a, i]).filter(([a]) => a.day <= game.day).reverse();
+  return `<div class="page">${bar("worldarticlez://home")}<div class="wa-logo">🌍 World<b>Articlez</b></div>
+    ${list.map(([a, i]) => `<button class="hl" data-act="article" data-i="${i}"><a>${esc(a.title)}</a><small>WorldArticlez · Day ${a.day}</small></button>`).join("")}</div>`;
+}
+
+function shopWin() {
+  return `<div class="page"><div class="row sb"><h3>🛍️ Cupid Shop</h3><b>🪙 ${game.coins}</b></div>
+    <p class="muted tiny">Earn Heartcoins by mending hearts. The shop opens soon!</p>
+    <div class="shop">${SHOP_ITEMS.map((s) => `<div class="shop-item"><span class="big-e">${s.e}</span><b>${esc(s.name)}</b><small>🪙 ${s.price}</small><button class="btn soft sm" disabled>Coming soon</button></div>`).join("")}</div></div>`;
 }
 
 function trashWin() {
@@ -308,7 +359,7 @@ function aboutWin() {
     <p class="muted tiny">Your progress is saved only in this browser.</p><button class="btn danger" data-act="reset">Clear game data on this device</button></div>`;
 }
 
-const BODY = { cupiddesk: deskApp, browser: browserWin, mailbox: mailWin, trash: trashWin, chart: chartWin, about: aboutWin };
+const BODY = { cupiddesk: deskApp, browser: browserWin, mailbox: mailWin, trash: trashWin, chart: chartWin, about: aboutWin, shop: shopWin };
 
 /* ---------- boot screen ---------- */
 function bootHtml() {
@@ -328,14 +379,14 @@ function render() {
   const s = game.shift;
   $("#app").innerHTML = `<div class="screen"><div class="desktop" id="desktop">
       <div class="deco" aria-hidden="true"><span>♥</span><span>♥</span><span>♥</span><span>♥</span><span>♥</span><span>☁</span><span>☁</span></div>
-      <div class="icons">${icon("cupiddesk", "💘", "Cupiddesk")}${icon("mailbox", "📬", "Mailbox", unread)}${icon("chart", "🥧", "Heart status")}${icon("browser", "🌐", "Browser")}${icon("trash", "🗑️", "Trash")}${icon("about", "ℹ️", "About")}</div>
+      <div class="icons">${icon("cupiddesk", "💘", "Cupiddesk")}${icon("mailbox", "✉️", "NoFlight", unread)}${icon("chart", "🥧", "Heart status")}${icon("browser", "🌐", "Browser")}${icon("shop", "🛍️", "Shop")}${icon("trash", "🗑️", "Trash")}${icon("about", "ℹ️", "About")}</div>
       <div class="watermark">${esc(NOTICE)}</div>
       ${ui.open.map((id) => winHtml(id, BODY[id]())).join("")}
     </div>
     <nav class="taskbar"><span class="start">💘 Cupid OS</span>
       <span class="tasks">${ui.open.map((id) => `<button class="task${ui.pos[id].z === ui.z ? " on" : ""}" data-act="focus" data-id="${id}">${WIN[id].i}<span> ${esc(WIN[id].t)}</span></button>`).join("")}</span>
       <span class="sp"></span>
-      ${s && s.status === "running" ? `<span class="tray-pill">${esc(shiftDef().title.split(":")[0])} · ${s.points} pts</span>` : ""}
+      ${s && s.status === "running" ? `<span class="tray-pill">Day ${game.day} · <span data-hour>${gameHour()}</span></span>` : ""}
       <button class="tray" data-act="sound" title="Sound">${game.sound ? "🔊" : "🔇"}</button>
       <span id="clock" class="tray"></span></nav></div>`;
   Object.keys(keep).forEach((id) => { const el = document.getElementById(id); if (el) el.value = keep[id]; });
@@ -348,6 +399,8 @@ function render() {
 function paintTimers() {
   const now = game.clock;
   const clock = $("#clock"); if (clock) clock.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.querySelectorAll("[data-hour]").forEach((el) => { el.textContent = gameHour(); });
+  const db = $("[data-daybar]"); if (db) db.style.width = Math.min(100, dayTime() / dayLength() * 100) + "%";
   document.querySelectorAll("[data-timer]").forEach((el) => {
     const n = getNote(+el.dataset.timer); if (!n || !n.due) return;
     const l = n.due - now; el.textContent = fmt(l); el.classList.toggle("low", l < 20000);
@@ -385,8 +438,8 @@ const acts = {
   focus(el) { ui.pos[el.dataset.id].z = ++ui.z; render(); },
   clockin() { clockIn(val("w-name")); introShift(); render(); },
   start() { startShift(); ui.sel = null; ui.tab = "queue"; ui.last = Date.now(); openWin("chart"); openWin("cupiddesk"); render(); flushEvents(); },
-  next() { nextShift(false); ui.sel = null; render(); },
-  retry() { nextShift(true); ui.sel = null; render(); },
+  next() { nextShift(); ui.sel = null; render(); flushEvents(); },
+  newgame() { const name = game.cupid && game.cupid.name; wipeGame(); clockIn(name); introShift(); ui.sel = null; ui.mailSel = null; ui.page = null; render(); },
   pause() { togglePause(); ui.last = Date.now(); render(); },
   tab(el) { ui.tab = el.dataset.t; render(); },
   select(el) { ui.sel = +el.dataset.id; render(); },
@@ -394,11 +447,18 @@ const acts = {
   pickup() { pickUp(ui.sel); ui.tab = "mine"; render(); },
   ask() { askDetails(ui.sel); render(); },
   reply(el) { reply(ui.sel, +el.dataset.i); render(); flushEvents(); },
+  pchoice(el) { pigeonChoice(ui.sel, el.dataset.c); render(); flushEvents(); },
   sound() { game.sound = !game.sound; save(); render(); },
-  search() { ui.search = val("q") || null; render(); },
+  search() { ui.search = val("q") || ""; ui.page = ui.search ? "search" : null; ui.job = null; render(); },
+  goto(el) { ui.search = el.dataset.q; ui.page = "search"; ui.job = null; render(); },
+  home() { ui.page = null; ui.search = ""; render(); },
+  article(el) { ui.page = "article"; ui.article = +el.dataset.i; render(); },
+  ptw() { const j = payToWork(); if (j) { ui.job = j; SFX.closed(); } render(); },
   mail(el) { ui.mailSel = el.dataset.k; readMail(ui.mailSel); render(); },
+  mreply(el) { replyMail(ui.mailSel, +el.dataset.i); toast("↩ Reply sent"); render(); },
+  fwd(el) { if (forwardMail(ui.mailSel, el.dataset.p) === "ok") toast("📨 Forwarded to " + PARTIES[el.dataset.p].name); render(); },
   emptytrash() { toast("The pigeons took the trash away. 🕊️"); },
-  reset() { if (!confirm("Clear all game data on this device?")) return; wipeGame(); ui.sel = null; ui.mailSel = null; ui.open = []; openWin("cupiddesk"); render(); }
+  reset() { if (!confirm("Clear all game data on this device?")) return; wipeGame(); ui.sel = null; ui.mailSel = null; ui.page = null; ui.open = []; openWin("cupiddesk"); render(); }
 };
 
 document.addEventListener("click", (e) => { const el = e.target.closest("[data-act]"); if (el && !el.disabled && acts[el.dataset.act]) acts[el.dataset.act](el); });
@@ -410,7 +470,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { if (e.target.id === "q") acts.search(); else if (e.target.id === "w-name") acts.clockin(); return; }
   if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
   const n = ui.sel && getNote(ui.sel);
-  if (!n || n.state !== "Pending" || game.paused || !ui.open.includes("cupiddesk")) return;
+  if (!n || n.state !== "Pending" || n.special || game.paused || !ui.open.includes("cupiddesk")) return;
   if (/^[1-4]$/.test(e.key)) acts.reply({ dataset: { i: +e.key - 1 } });
   else if (e.key.toLowerCase() === "d") acts.ask();
 });

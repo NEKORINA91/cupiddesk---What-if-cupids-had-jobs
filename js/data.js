@@ -107,9 +107,12 @@ const RESOLUTION = {
   fulfilled: { label: "Fulfilled by Cupid L2", e: "🎁", stars: 5 },
   declined:  { label: "Politely declined",     e: "🚫", stars: 4 },
   wrongdecline: { label: "Declined (oops)",    e: "😬", stars: 1 },
-  broken:    { label: "Heartbroken",           e: "💔", stars: 1 }
+  broken:    { label: "Heartbroken",           e: "💔", stars: 1 },
+  nightshift:     { label: "Handed to night shift", e: "🌙", stars: 3, special: true },
+  pigeonAccepted: { label: "Pigeon contact made",   e: "🐦", stars: 3, special: true },
+  pigeonRefused:  { label: "Pigeons refused",       e: "🙅", stars: 3, special: true }
 };
-const POINTS = { mended: 100, patched: 50, l2mended: 45, fulfilled: 80, declined: 70, wrongdecline: -40, broken: -50, triageRight: 15, triageWrong: -10, perSecondLeft: 1 };
+const POINTS = { nightshift: 0, pigeonAccepted: 0, pigeonRefused: 0, mended: 100, patched: 50, l2mended: 45, fulfilled: 80, declined: 70, wrongdecline: -40, broken: -50, triageRight: 15, triageWrong: -10, perSecondLeft: 1 };
 
 /* ---------- automated Cupid L2 ---------- */
 const L2_DELAY_SECONDS = 10;
@@ -124,20 +127,6 @@ const L2_LINES = {
 
 /* ---------- desktop world (all fictional) ---------- */
 const PIGEON_SECONDS = 2.5;
-const HEADLINES = [
-  "Cupid job ratings are down, say hearts everywhere",
-  "Pigeon union asks for better crumbs",
-  "Local heart declared 'mostly fine'",
-  "Study: 9 out of 10 hearts prefer snacks",
-  "Rose petals now sold by the pound",
-  "Senior Cupid denies owning a very large bow"
-];
-const SEARCH_TEMPLATES = [
-  "%q%: 5 things Cupids won't tell you",
-  "Is %q% a pigeon? Experts disagree",
-  "How to fix %q% with only a snack",
-  "%q% (page not found, the pigeons ate it)"
-];
 const TRASH_ITEMS = ["apology_final_FINAL_v3.txt", "broken_heart (2).png", "pigeon_complaints.doc", "unsent_poem_draft.txt", "laminated_pizza_rules.pdf"];
 
 const DISCLAIMER = "Cupiddesk is a fictional parody game created for entertainment and humor. Its characters, scenarios, conversations, and resolutions are fictional and are not intended to provide real relationship, psychological, legal, medical, or professional advice. Do not use the game's fictional responses as guidance for real-world decisions.";

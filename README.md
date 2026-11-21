@@ -22,26 +22,32 @@ Open `index.html` in any modern browser (double-click it, or use VS Code's "Live
 - Every shift ends with a **report card** (S, A, B, C or D).
 - Keys **1 to 4** send replies, **D** asks for details.
 
-## Story mode
+## Story mode: 7 days at the desk
 
-Five story shifts (chapters) that unlock features step by step, with mails from Senior Cupid, Heart Resources, L2 Fulfilment and a mysterious "???". After that, endless **Overtime** shifts get busier each time.
+Each in-game day runs from 9 AM to 5 PM and lasts 12 real minutes. You get 7 days.
 
-The story in `js/story.js` is a stand-in. Rewrite the shift titles, intros, mails and scripted story LoveNotes with your own plot.
+- **NoFlight mail**: the Love Goddess, an angel from the High Realm, the pigeons and random coworkers email you. You can **reply**, and you can **forward** any mail to the Angel, the Goddess or the Pigeons. What you forward, and to whom, decides your ending. Spamming someone has consequences.
+- **The pigeon LoveNote**: from Day 2 the pigeons write in. Accept, ask why, or refuse. If you refuse, they try again on later days.
+- **WorldArticlez**: the in-game browser's news site. Most searches say "Restricted access", but a few words open hidden pages (try the Goddess, the Pigeon CEO, the High Realm or PayToWork).
+- **Heartcoins**: you earn them every day. Spend them on the PayToWork job lottery. The Cupid Shop is coming soon.
+- **5 endings**.
+
+All story text is in `js/story.js`. Lines marked `[PLACEHOLDER]` are stand-ins to replace with the real story.
 
 ## Desktop apps
 
-Cupiddesk · Mailbox · Heart status (donut chart) · Cloudy Search browser · Trash · About. Windows can be dragged and Cupiddesk can be maximised. Works on phones too.
+Cupiddesk · NoFlight Mail · Heart status (donut chart) · Browser (WorldArticlez) · Cupid Shop · Trash · About. Windows can be dragged, and Cupiddesk can be maximised. Works on phones too.
 
 ## Files
 
 - `index.html`: page shell
 - `css/styles.css`: Cupid OS theme (light and dark mode)
 - `js/data.js`: LoveNote templates, names, replies, points and settings
-- `js/story.js`: story shifts and mails (write your story here)
+- `js/story.js`: the 7 days, mails, pigeon LoveNote, forwarding reactions, endings, WorldArticlez, hidden pages, shop (write your story here)
 - `js/game.js`: game logic, timers and saved state
 - `js/ui.js`: desktop, windows, screens, sounds
 - `CREDITS.md`: credits
 
 ## Ideas for later
 
-More LoveNote templates, sound on/off per effect, achievements, an optional multiplayer version where people play customers.
+Shop items, Goddess orders that change the desk rules, more endings, achievements.
