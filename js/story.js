@@ -217,8 +217,30 @@ const PAYTOWORK_JOBS = [
   "Trainee thunder (quiet department)", "Moon nap supervisor", "Senior Cupid's personal bow carrier"
 ];
 
-/* ---------- Cupid Shop (coming soon) ---------- */
+/* ---------- Birb Connections VPN ----------
+   Buy it in the Cupid Shop. With it on, searches that would say "Restricted access"
+   can open these extra pages instead. keys: words that open the page. */
+const VPN = { name: "Birb Connections", e: "🐦", slogan: "You search. We don't know." };
+const VPN_PAGES = [
+  { keys: ["ring", "rings", "love ring"], title: "Where the ring money goes", body: "[PLACEHOLDER: secret info about the Goddess-Approved Love Ring™ money]" },
+  { keys: ["complaint", "complaints", "sabotage"], title: "The two complaints (leaked)", body: "[PLACEHOLDER: the Goddess's complaint about the pigeons, and the pigeons' complaint about her]" },
+  { keys: ["coop", "pigeon union", "union", "strike"], title: "Inside the coop", body: "[PLACEHOLDER: what the pigeons are really planning]" },
+  { keys: ["crumbs", "pay", "salary", "wages"], title: "Crumb budget spreadsheet", body: "[PLACEHOLDER: how pigeon and Cupid pay was cut]" },
+  { keys: ["investigation", "report", "a.investigations"], title: "High Realm case file #0214", body: "[PLACEHOLDER: what the angel's investigation has found so far]" }
+];
+
+/* ---------- tapping pigeons ----------
+   Tap a flying pigeon 4 times and it goes poof: that LoveNote never reaches you.
+   kills: after this many in one week, the Goddess emails you. */
+const PIGEON_POOF = {
+  goddessMailAt: 8,
+  goddessMail: { subject: "About the pigeons...", body: "Cupid,\n\nI know pigeons are the worst. But try not to get me into PR trouble for now.\n\n- The Love Goddess" }
+};
+
+/* ---------- Cupid Shop ----------
+   id "vpn" is the Birb Connections VPN. Items without an id are "coming soon". */
 const SHOP_ITEMS = [
+  { id: "vpn", name: "Birb Connections VPN", e: "🐦", price: 150, desc: "You search. We don't know. Unlocks secret search results in the browser." },
   { name: "Fancy wings", e: "🪽", price: 120 },
   { name: "Golden arrow (real one)", e: "🏹", price: 300 },
   { name: "Desk plant (not Gerald)", e: "🪴", price: 60 },
@@ -239,6 +261,9 @@ const TROPHIES = [
   { id: "snitch", e: "👑", name: "Teacher's Pet", desc: "Report someone to the Goddess." },
   { id: "nosy", e: "🔒", name: "Restricted Access", desc: "Hit 'Restricted access' 5 times." },
   { id: "hidden_all", e: "🗝️", name: "Deep Web Cupid", desc: "Find every hidden page." },
+  { id: "vpn", e: "🕶️", name: "Off the Grid", desc: "Buy the Birb Connections VPN." },
+  { id: "vpn_all", e: "🛰️", name: "Birb's Eye View", desc: "Find every secret VPN page." },
+  { id: "pigeon_5", e: "🪶", name: "What Did I Do?", desc: "Make 5 flying pigeons go poof." },
   { id: "news_junkie", e: "📰", name: "News Junkie", desc: "Read 5 WorldArticlez stories." },
   { id: "paytowork", e: "🎰", name: "Employed (Sort Of)", desc: "Win a job from PayToWork." },
   { id: "end_angel", e: "😇", name: "Ending: The Report", desc: "Help the angel." },

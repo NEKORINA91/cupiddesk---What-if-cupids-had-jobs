@@ -130,7 +130,8 @@ const L2_LINES = {
 };
 
 /* ---------- desktop world (all fictional) ---------- */
-const PIGEON_SECONDS = 2.5;
+const PIGEON_SECONDS = 4.5;   // how long a pigeon is flying across the screen (and can be tapped)
+const PIGEON_TAPS = 4;        // taps to make a flying pigeon go poof
 const TRASH_ITEMS = ["apology_final_FINAL_v3.txt", "broken_heart (2).png", "pigeon_complaints.doc", "unsent_poem_draft.txt", "laminated_pizza_rules.pdf"];
 
 const DISCLAIMER = "Cupiddesk is a fictional parody game created for entertainment and humor. Its characters, scenarios, conversations, and resolutions are fictional and are not intended to provide real relationship, psychological, legal, medical, or professional advice. Do not use the game's fictional responses as guidance for real-world decisions.";

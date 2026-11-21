@@ -13,13 +13,14 @@ function freshGame() {
     history: [],               // past day reports
     clock: 0,                  // game time in ms. Only moves while a day is running and not paused
     paused: false, sound: true,
-    coins: 0, jobs: [],
+    coins: 0, jobs: [], owned: {}, vpnOn: true,
     totals: { points: 0, mended: 0, broken: 0 },
     story: {
       flags: {},               // pigeonContact, angelContact
       stats: { evidence: 0, support: 0, loyal: 0, annoyAngel: 0, annoyGoddess: 0, frustrate: 0 },
       delivered: {}, warned: {},
-      pigeon: { refusals: 0, lastDay: 0 }
+      pigeon: { refusals: 0, lastDay: 0 },
+      kills: 0
     },
     ending: null
   };
@@ -93,6 +94,7 @@ function shiftNotes() { return game.notes.filter((n) => !n.old); }
 function endShift() {
   const d = shiftDef(), s = game.shift;
   // anything still open goes to the night shift
+  game.notes = game.notes.filter((n) => n.state !== "Flying");
   shiftNotes().forEach((n) => {
     if (n.state === "Closed") return;
     if (n.special === "pigeon") { game.story.pigeon.refusals++; n.chat.push({ who: "person", text: "...no answer? Coo." }); finish(n, "pigeonRefused"); }
@@ -153,7 +155,7 @@ function makeNote(src) {
     title: src.title, text: fill(src.text, partner), detail: fill(src.detail || "", partner),
     asked: false, triage: { cat: null, sev: null },
     calm: rnd(22, 40), chat: [{ who: "person", text: fill(src.text, partner) }],
-    state: "New", arrived: game.clock, due: null, total: null, l2At: null, l2Mode: null, options: [],
+    state: "Flying", landAt: game.clock + sec(PIGEON_SECONDS), arrived: game.clock, due: null, total: null, l2At: null, l2Mode: null, options: [],
     resolution: null, points: 0, story: !!src.story
   };
   game.notes.push(n);
@@ -409,6 +411,7 @@ function advance(delta) {
   }
 
   game.notes.forEach((n) => {
+    if (n.state === "Flying" && game.clock >= n.landAt) { n.state = "New"; emit("landed", n); changed = true; return; }
     if (n.special) return;
     if (n.state === "Pending" && game.clock >= n.due) {
       n.chat.push({ who: "person", text: "Too late. My heart is broken. 💔" });
@@ -429,6 +432,31 @@ function advance(delta) {
 
 function togglePause() { game.paused = !game.paused; save(); }
 
+/* ---------- tapping a flying pigeon ---------- */
+function poofPigeon(id) {
+  const n = getNote(id);
+  if (!n || n.state !== "Flying" || n.special) return false;
+  game.notes = game.notes.filter((x) => x !== n);
+  game.story.kills = (game.story.kills || 0) + 1;
+  if (game.story.kills >= 5) award("pigeon_5");
+  if (game.story.kills === PIGEON_POOF.goddessMailAt)
+    queueMail(sec(5), { party: "goddess", kind: "normal", from: PARTIES.goddess.name, subject: PIGEON_POOF.goddessMail.subject, body: PIGEON_POOF.goddessMail.body });
+  save();
+  return true;
+}
+
+/* ---------- Cupid Shop ---------- */
+function buy(id) {
+  const it = SHOP_ITEMS.find((x) => x.id === id);
+  if (!it || game.owned[id] || game.coins < it.price) return false;
+  game.coins -= it.price; game.owned[id] = true;
+  if (id === "vpn") award("vpn");
+  save();
+  return true;
+}
+function vpnActive() { return !!(game.owned.vpn && game.vpnOn); }
+function findVpnPage(q) { const s = q.toLowerCase().trim(); return VPN_PAGES.find((p) => p.keys.some((k) => s === k || s.includes(k))); }
+
 /* ---------- PayToWork lottery ---------- */
 function payToWork() {
   if (game.coins < PAYTOWORK_COST) return null;
@@ -441,7 +469,7 @@ function payToWork() {
 
 /* ---------- stats ---------- */
 function countStates() {
-  const c = { New: 0, Pending: 0, Escalated: 0, Closed: 0 };
+  const c = { Flying: 0, New: 0, Pending: 0, Escalated: 0, Closed: 0 };
   shiftNotes().forEach((n) => { c[n.state]++; });
   return c;
 }

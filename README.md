@@ -29,7 +29,9 @@ Each in-game day runs from 9 AM to 5 PM and lasts 12 real minutes. You get 7 day
 - **NoFlight mail**: a normal email client with Inbox and Sent folders, From/To/Date headers, and Reply and Forward. The Love Goddess, an angel from the High Realm, the pigeons and random coworkers email you. You can **reply**, and you can **forward** any mail to the Angel, the Goddess or the Pigeons. What you forward, and to whom, decides your ending. Spamming someone has consequences.
 - **The pigeon LoveNote**: from Day 2 the pigeons write in. Accept, ask why, or refuse. If you refuse, they try again on later days.
 - **WorldArticlez**: the in-game browser's news site. Most searches say "Restricted access", but a few words open hidden pages (try the Goddess, the Pigeon CEO, the High Realm or PayToWork).
-- **Heartcoins**: you earn them every day. Spend them on the PayToWork job lottery. The Cupid Shop is coming soon.
+- **Heartcoins**: you earn them every day. Spend them on the PayToWork job lottery or in the Cupid Shop.
+- **Birb Connections VPN** (Cupid Shop, 150 coins): "You search. We don't know." With it on, some restricted searches open secret pages (try ring, complaint, coop, crumbs, investigation).
+- **Tappable pigeons**: every LoveNote arrives by pigeon. Tap a flying pigeon 4 times and it goes poof, and that LoveNote never arrives. Do it 8 times and the Goddess emails you about PR.
 - **Spam limit**: up to 5 pointless forwards a day to the angel or the Goddess. The 4th gets a Warning and the 5th a FINAL WARNING. A 6th the same day clips your wings (a broken-screen ending, then you restart). The count resets every new day.
 - **Time over**: at 5 PM the desk closes and a "No overtime paid" notice appears. Click it to clock out and go to the next day.
 - **5 endings**.

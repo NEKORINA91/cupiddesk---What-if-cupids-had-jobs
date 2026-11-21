@@ -32,11 +32,32 @@ function mailPop(m) {
   p.onclick = () => { ui.mailSel = m.key; readMail(m.key); openWin("mailbox"); render(); p.remove(); };
   document.body.appendChild(p); setTimeout(() => p.remove(), 9000);
 }
+// The pigeon carrying a LoveNote. Tap it 4 times and it goes poof (and so does the LoveNote).
 function flyPigeon(n) {
-  const p = document.createElement("div"); p.className = "pigeon"; p.innerHTML = `<span>🕊️</span><span class="env">💌</span>`;
-  p.style.top = (60 + Math.random() * 120) + "px";
+  const p = document.createElement("div"); p.className = "pigeon";
+  p.innerHTML = `<span class="bird">🕊️</span><span class="env">💌</span>`;
+  p.style.top = (60 + Math.random() * 140) + "px";
+  p.style.animationDuration = PIGEON_SECONDS + "s";
+  let taps = 0;
+  p.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    if (p.classList.contains("poof")) return;
+    if (n.special) { p.classList.remove("hit"); void p.offsetWidth; p.classList.add("hit"); toast("🛡️ This pigeon has important business."); return; }
+    taps++;
+    beep([[300 + taps * 90, .06]], "square");
+    p.classList.remove("hit"); void p.offsetWidth; p.classList.add("hit");
+    if (taps >= PIGEON_TAPS && poofPigeon(n.id)) {
+      const r = p.getBoundingClientRect();
+      p.classList.add("poof"); p.style.left = r.left + "px"; p.style.animation = "none";
+      p.innerHTML = `<span class="puff">💨</span><span class="feather f1">🪶</span><span class="feather f2">🪶</span><span class="feather f3">🪶</span>`;
+      beep([[880, .05], [440, .08], [220, .2]], "sawtooth");
+      setTimeout(() => p.remove(), 1400);
+      toast("🪶 Poof. " + n.num + " will never arrive.");
+      render(); flushEvents();
+    }
+  });
   document.body.appendChild(p);
-  setTimeout(() => { p.remove(); toast("💌 " + n.num + " landed: " + n.title); }, PIGEON_SECONDS * 1000);
+  setTimeout(() => { if (!p.classList.contains("poof")) p.remove(); }, PIGEON_SECONDS * 1000 + 100);
 }
 
 /* ---------- tiny sound effects (Web Audio, no files) ---------- */
@@ -85,6 +106,7 @@ function flushEvents() {
     if (e.type === "ending") { closeWin("overtime"); again = true; }
     if (SFX[e.type]) SFX[e.type]();
     if (e.type === "arrive") flyPigeon(e.data);
+    if (e.type === "landed") toast("💌 " + e.data.num + " landed: " + e.data.title);
     if (e.type === "mail") mailPop(e.data);
     if (e.type === "closed") toast(RESOLUTION[e.data.resolution].e + " " + e.data.num + ": " + RESOLUTION[e.data.resolution].label + " (" + (e.data.points >= 0 ? "+" : "") + e.data.points + ")", "ok");
     if (e.type === "broken") toast(RESOLUTION[e.data.resolution].e + " " + e.data.num + ": " + RESOLUTION[e.data.resolution].label + " (" + e.data.points + ")", "bad");
@@ -413,7 +435,7 @@ function findHidden(q) {
   return HIDDEN_PAGES.find((p) => p.keys.some((k) => s === k || s.includes(k)));
 }
 function browserWin() {
-  const bar = (addr) => `<div class="bookmarks"><button class="bm${!ui.page || ui.page === "article" ? " on" : ""}" data-act="home">🌍 WorldArticlez</button><button class="bm${ui.page === "trophies" ? " on" : ""}" data-act="trophies">🏆 My Achievements</button></div><div class="addr"><button class="btn ghost sm" data-act="home" title="Home">🏠</button><input id="q" maxlength="60" placeholder="Search WorldArticlez" value="${esc(ui.search || "")}" data-keep><button class="btn primary sm" data-act="search">Search</button></div><div class="tiny muted url">${esc(addr)}</div>`;
+  const bar = (addr) => `<div class="bookmarks"><button class="bm${!ui.page || ui.page === "article" ? " on" : ""}" data-act="home">🌍 WorldArticlez</button><button class="bm${ui.page === "trophies" ? " on" : ""}" data-act="trophies">🏆 My Achievements</button></div>${game.owned.vpn ? `<button class="vpn-badge${game.vpnOn ? " on" : ""}" data-act="vpn">${VPN.e} ${esc(VPN.name)}: ${game.vpnOn ? "connected" : "off"}</button>` : ""}<div class="addr"><button class="btn ghost sm" data-act="home" title="Home">🏠</button><input id="q" maxlength="60" placeholder="Search WorldArticlez" value="${esc(ui.search || "")}" data-keep><button class="btn primary sm" data-act="search">Search</button></div><div class="tiny muted url">${esc(addr)}</div>`;
   if (ui.page === "trophies") return `<div class="page">${bar("cupidos://my-achievements")}${trophiesPage()}</div>`;
   if (ui.page === "article") {
     const a = ARTICLES[ui.article];
@@ -421,7 +443,9 @@ function browserWin() {
   }
   if (ui.page === "search") {
     const h = findHidden(ui.search || "");
-    if (!h) return `<div class="page">${bar("worldarticlez://search?q=" + (ui.search || ""))}<div class="restricted"><div class="big-e">🔒</div><h3>Restricted access</h3><p class="muted">Your Cupid clearance doesn't allow this search. This attempt has (not really) been reported to the Goddess.</p></div></div>`;
+    const v = !h && vpnActive() ? findVpnPage(ui.search || "") : null;
+    if (v) return `<div class="page">${bar("birb://" + v.keys[0].replace(/ /g, "-") + ".onion.coo")}<div class="wa-art hidden-page vpn-page"><div class="kicker">${VPN.e} via ${esc(VPN.name)} · ${esc(VPN.slogan)}</div><h2>${esc(v.title)}</h2><p>${esc(v.body)}</p></div></div>`;
+    if (!h) return `<div class="page">${bar("worldarticlez://search?q=" + (ui.search || ""))}<div class="restricted"><div class="big-e">${vpnActive() ? VPN.e : "🔒"}</div><h3>${vpnActive() ? "Nothing here" : "Restricted access"}</h3><p class="muted">${vpnActive() ? "Even the birbs couldn't find that. Try other words." : "Your Cupid clearance doesn't allow this search. This attempt has (not really) been reported to the Goddess."}</p>${!game.owned.vpn ? `<p class="tiny muted">Psst. Some people use a VPN for this. (Cupid Shop)</p>` : ""}</div></div>`;
     const ptw = h.paytowork ? `<div class="ptw"><p>Cost: 🪙 ${PAYTOWORK_COST}. You have 🪙 ${game.coins}.</p><button class="btn primary" data-act="ptw"${game.coins < PAYTOWORK_COST ? " disabled" : ""}>🎰 Pay and spin for a job</button>${ui.job ? `<div class="job">Your new job: <b>${esc(ui.job)}</b></div>` : ""}${game.jobs.length ? `<p class="tiny muted">Jobs won so far: ${game.jobs.map(esc).join(", ")}</p>` : ""}</div>` : "";
     return `<div class="page">${bar("worldarticlez://hidden/" + h.keys[0].replace(/ /g, "-"))}<div class="wa-art hidden-page"><div class="kicker">🔓 Hidden page</div><h2>${esc(h.title)}</h2><p>${esc(h.body)}</p>${h.link ? `<button class="btn soft sm" data-act="goto" data-q="${h.link}">Open ${esc(h.link)} →</button>` : ""}${ptw}</div></div>`;
   }
@@ -432,8 +456,11 @@ function browserWin() {
 
 function shopWin() {
   return `<div class="page"><div class="row sb"><h3>🛍️ Cupid Shop</h3><b>🪙 ${game.coins}</b></div>
-    <p class="muted tiny">Earn Heartcoins by mending hearts. The shop opens soon!</p>
-    <div class="shop">${SHOP_ITEMS.map((s) => `<div class="shop-item"><span class="big-e">${s.e}</span><b>${esc(s.name)}</b><small>🪙 ${s.price}</small><button class="btn soft sm" disabled>Coming soon</button></div>`).join("")}</div></div>`;
+    <p class="muted tiny">Earn Heartcoins by mending hearts. More items coming soon!</p>
+    <div class="shop">${SHOP_ITEMS.map((s) => `<div class="shop-item${s.id ? " live" : ""}"><span class="big-e">${s.e}</span><b>${esc(s.name)}</b>${s.desc ? `<small class="muted">${esc(s.desc)}</small>` : ""}<small>🪙 ${s.price}</small>${
+      !s.id ? '<button class="btn soft sm" disabled>Coming soon</button>'
+      : game.owned[s.id] ? '<button class="btn ghost sm" disabled>✓ Owned</button>'
+      : `<button class="btn primary sm" data-act="buy" data-id="${s.id}"${game.coins < s.price ? " disabled" : ""}>Buy</button>`}</div>`).join("")}</div></div>`;
 }
 
 function trashWin() {
@@ -586,13 +613,17 @@ const acts = {
     ui.search = val("q") || ""; ui.page = ui.search ? "search" : null; ui.job = null;
     if (ui.search) {
       const h = findHidden(ui.search);
+      const v = !h && vpnActive() ? findVpnPage(ui.search) : null;
       if (h) { trophies.found[h.keys[0]] = 1; if (HIDDEN_PAGES.every((p) => trophies.found[p.keys[0]])) award("hidden_all"); }
-      else { trophies.restricted++; if (trophies.restricted >= 5) award("nosy"); }
+      else if (v) { trophies.found["vpn:" + v.keys[0]] = 1; if (VPN_PAGES.every((p) => trophies.found["vpn:" + p.keys[0]])) award("vpn_all"); }
+      else if (!vpnActive()) { trophies.restricted++; if (trophies.restricted >= 5) award("nosy"); }
       saveTrophies();
     }
     render(); flushEvents();
   },
   trophies() { ui.page = "trophies"; render(); },
+  buy(el) { if (buy(el.dataset.id)) { toast("🛍️ Bought! " + (el.dataset.id === "vpn" ? "Birb Connections is now in your browser." : "")); SFX.closed(); } render(); flushEvents(); },
+  vpn() { game.vpnOn = !game.vpnOn; save(); render(); },
   goto(el) { ui.search = el.dataset.q; const h = findHidden(ui.search); if (h) { trophies.found[h.keys[0]] = 1; if (HIDDEN_PAGES.every((p) => trophies.found[p.keys[0]])) award("hidden_all"); saveTrophies(); } ui.page = "search"; ui.job = null; render(); flushEvents(); },
   home() { ui.page = null; ui.search = ""; render(); },
   article(el) { ui.page = "article"; ui.article = +el.dataset.i; trophies.articles[ui.article] = 1; saveTrophies(); if (Object.keys(trophies.articles).length >= 5) award("news_junkie"); render(); flushEvents(); },
