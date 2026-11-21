@@ -26,6 +26,16 @@ function toast(msg, kind) {
   t.style.top = (14 + document.querySelectorAll(".toast").length * 50) + "px";
   document.body.appendChild(t); setTimeout(() => t.classList.add("out"), 2400); setTimeout(() => t.remove(), 2800);
 }
+// Achievement popup: slides in on the side, stays a moment, then slowly fades away.
+function achPop(t) {
+  let box = document.getElementById("ach-stack");
+  if (!box) { box = document.createElement("div"); box.id = "ach-stack"; document.body.appendChild(box); }
+  const p = document.createElement("div"); p.className = "ach";
+  p.innerHTML = `<span class="ach-e">${t.e}</span><div><small>🏆 Achievement unlocked</small><b>${esc(t.name)}</b><span class="d">${esc(t.desc)}</span></div>`;
+  box.appendChild(p);
+  setTimeout(() => p.classList.add("out"), 4500);
+  setTimeout(() => p.remove(), 7200);
+}
 function mailPop(m) {
   const p = document.createElement("button"); p.className = "pop";
   p.innerHTML = `<span class="pop-i">${(PARTIES[m.party] || PARTIES.other).e}</span><span><b>${esc(m.from)}</b><br>${esc(m.subject)}</span>`;
@@ -100,7 +110,7 @@ const SFX = {
 function flushEvents() {
   let again = false;
   takeEvents().forEach((e) => {
-    if (e.type === "trophy") { toast("🏆 Trophy unlocked: " + e.data.name, "trophy"); SFX.trophy(); }
+    if (e.type === "trophy") { achPop(e.data); SFX.trophy(); }
     if (e.type === "timeover") { openWin("overtime"); again = true; }
     if (e.type === "ending" && ENDINGS[e.data].clipped) { showBroken(e.data); }
     if (e.type === "ending") { closeWin("overtime"); again = true; }

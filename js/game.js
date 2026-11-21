@@ -112,6 +112,8 @@ function endShift() {
   game.history.push({ title: d.title, points: s.points, grade });
   if (grade === "S") award("perfect_day");
   if (isLastDay()) award("full_week");
+  if (isLastDay() && game.history.length >= DAYS.length && game.history.slice(-DAYS.length).every((h) => ["S", "A", "B"].includes(h.grade))) award("perfect_week");
+  if (!s.worked) award("skip_day");
   emit("shiftEnd", s.report);
   save();
 }
@@ -201,6 +203,7 @@ function pickUp(id) {
   const n = getNote(id);
   if (!n || n.state !== "New") return;
   n.state = "Pending";
+  game.shift.worked = (game.shift.worked || 0) + 1;
   if (n.special) { save(); return; } // the pigeon LoveNote has no timer
   n.total = sec(PRIORITY[n.sev].seconds);
   n.due = game.clock + n.total;
@@ -275,7 +278,8 @@ function finish(n, res, extra) {
   game.shift.points += n.points; game.shift.closed++;
   game.totals.points += n.points;
   if (res === "mended" || res === "l2mended" || res === "fulfilled") game.totals.mended++;
-  if (res === "mended") award("first_mend");
+  if (res === "mended") { award("first_mend"); game.shift.mended = (game.shift.mended || 0) + 1; if (game.shift.mended >= 5) award("cupid_week"); }
+  if (res === "broken" || res === "wrongdecline") { game.totals.failed = (game.totals.failed || 0) + 1; if (game.totals.failed >= 5) award("love_stinks"); }
   if (game.totals.mended >= 25) award("mend_25");
   if (res === "broken") game.totals.broken++;
   if (!RESOLUTION[res].special) emit(n.points >= 0 ? "closed" : "broken", n);
