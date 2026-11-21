@@ -160,12 +160,16 @@ const FORWARD = {
 
 /* ---------- limits and endings ---------- */
 const LIMITS = {
-  angelSpam: 4,      // useless forwards to the angel before you're arrested
-  goddessSpam: 3,    // useless forwards to the Goddess before you're fired
+  // Spam = a pointless forward. You can send up to 5 a day to each side. The 5th gets a FINAL WARNING.
+  // One more on the same day = Clipped Wings. The count resets every new day.
+  angelSpam: 5,      // pointless forwards to the angel allowed per day
+  goddessSpam: 5,    // pointless forwards to the Goddess allowed per day
+  pigeonSpam: 5,     // the pigeons only get frustrated, nothing happens
   angelWin: 3,       // suspicious Goddess mails sent to the angel to win
   pigeonWin: 3       // suspicious Goddess mails sent to the pigeons for the pigeon ending
 };
-// Each side warns you, then gives a FINAL WARNING. One more pointless forward after that = Clipped Wings.
+// These replace the normal reply on the 4th (first) and 5th (final) pointless forward of the day,
+// so you only ever get one mail back per forward.
 const WARNINGS = {
   annoyAngel: {
     first: "[PLACEHOLDER] Cupid. Please only send me real evidence. - A.",
@@ -241,6 +245,6 @@ const TROPHIES = [
   { id: "end_pigeons", e: "🪶", name: "Ending: Feathers Fly", desc: "Help the pigeons." },
   { id: "end_neutral", e: "⛓️", name: "Ending: Just Doing My Job", desc: "Stay out of it." },
   { id: "end_spamAngel", e: "🚨", name: "Ending: Clipped Wings (Arrested)", desc: "Annoy the angel too much." },
-  { id: "end_spamGoddess", e: "📦", name: "Ending: Clipped Wings (Fired)", desc: "Annoy the Goddess too much." },
+  { id: "end_spamGoddess", e: "📦", name: "Even Love Has a Patience Limit", desc: "Get fired by the Love Goddess for spamming her." },
   { id: "all_endings", e: "🏆", name: "Seen It All", desc: "Find every ending." }
 ];

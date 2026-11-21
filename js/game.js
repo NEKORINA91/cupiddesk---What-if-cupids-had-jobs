@@ -84,6 +84,7 @@ function startShift() {
   game.notes = game.notes.filter((n) => n.state === "Closed").slice(-40);
   game.notes.forEach((n) => { n.old = true; });
   game.shift = { status: "running", started: game.clock, nextAt: game.clock + sec(d.first), points: 0, closed: 0 };
+  game.story.today = {}; // spam counts reset every day
   game.paused = false;
   save();
 }
@@ -365,21 +366,18 @@ function forwardMail(key, party) {
   st[r.effect]++;
   if (r.effect === "evidence") award("first_evidence");
   if (r.effect === "loyal") award("snitch");
-  const from = PARTIES[party].name, subject = "Re: Fwd: " + m.subject;
-  let ending = null;
-  if (r.effect === "annoyAngel" && st.annoyAngel >= LIMITS.angelSpam) ending = "spamAngel";
-  if (r.effect === "annoyGoddess" && st.annoyGoddess >= LIMITS.goddessSpam) ending = "spamGoddess";
-  const kind = party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon";
-  queueMail(sec(ending ? 4 : 10), { party, kind, from, subject, body: r.body }, ending);
-  // a warning, then a FINAL WARNING, before the limit
-  const limit = r.effect === "annoyAngel" ? LIMITS.angelSpam : r.effect === "annoyGoddess" ? LIMITS.goddessSpam : r.effect === "frustrate" ? 5 : 0;
-  if (limit && WARNINGS[r.effect]) {
-    const w = st[r.effect] === limit - 1 ? "final" : st[r.effect] === limit - 2 ? "first" : null;
-    if (w && !game.story.warned[r.effect + w]) {
-      game.story.warned[r.effect + w] = true;
-      queueMail(sec(16), { party, kind, from, subject: w === "final" ? "⚠️ FINAL WARNING" : "Warning", body: WARNINGS[r.effect][w] });
-    }
+  const from = PARTIES[party].name, kind = party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon";
+  let subject = "Re: Fwd: " + m.subject, body = r.body, ending = null;
+  // spam: up to the daily limit is allowed. 4th = warning, 5th = FINAL WARNING, 6th = Clipped Wings.
+  const limit = { annoyAngel: LIMITS.angelSpam, annoyGoddess: LIMITS.goddessSpam, frustrate: LIMITS.pigeonSpam }[r.effect];
+  if (limit) {
+    const today = game.story.today || (game.story.today = {});
+    const n = today[r.effect] = (today[r.effect] || 0) + 1;
+    if (n > limit && r.effect !== "frustrate") ending = r.effect === "annoyAngel" ? "spamAngel" : "spamGoddess";
+    else if (n === limit) { subject = "⚠️ FINAL WARNING"; body = WARNINGS[r.effect].final; }
+    else if (n === limit - 1) { subject = "Warning"; body = WARNINGS[r.effect].first; }
   }
+  queueMail(sec(ending ? 3 : 10), { party, kind, from, subject, body }, ending);
   save();
   return "ok";
 }

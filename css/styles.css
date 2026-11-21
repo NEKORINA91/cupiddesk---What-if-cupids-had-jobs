@@ -125,7 +125,8 @@ input:focus,select:focus{border-color:var(--pk);box-shadow:0 0 0 3px var(--pk-l)
 .tab.on{background:var(--card);color:var(--pk-d);box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .tc{display:inline-block;margin-left:4px;min-width:17px;padding:0 4px;border-radius:9px;background:var(--pk);color:#fff;font-size:10.5px}
 .lscroll{flex:1;overflow:auto;padding:0 8px 8px}
-.lcard{display:block;width:100%;text-align:left;margin:0 0 7px;padding:9px 11px;border-radius:12px;border:1px solid var(--line);background:var(--card);border-left:4px solid var(--pk-l);animation:winIn .25s}
+.lcard{display:block;width:100%;text-align:left;margin:0 0 7px;padding:9px 11px;border-radius:12px;border:1px solid var(--line);background:var(--card);border-left:4px solid var(--pk-l)}
+.lcard.fresh{animation:winIn .3s}
 .lcard:hover{border-color:var(--pk-l)}
 .lcard.sel{border-color:var(--pk);box-shadow:0 0 0 2px var(--pk-l)}
 .lcard.st-Pending{border-left-color:var(--warn)} .lcard.st-Escalated{border-left-color:var(--l2)} .lcard.st-Closed{border-left-color:var(--line);opacity:.8}
@@ -171,7 +172,8 @@ input:focus,select:focus{border-color:var(--pk);box-shadow:0 0 0 3px var(--pk-l)
 .timer{font-family:var(--mono)} .timer.low{color:var(--bad)}
 
 .chat{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--soft);border:1px solid var(--line);flex:1 1 150px!important;min-height:120px;overflow:auto;margin-bottom:10px}
-.msg-row{display:flex;gap:8px;align-items:flex-end;max-width:88%;animation:winIn .2s}
+.msg-row{display:flex;gap:8px;align-items:flex-end;max-width:88%}
+.msg-row.fresh{animation:winIn .25s}
 .msg-row.me{align-self:flex-end;flex-direction:row-reverse}
 .av{font-size:20px;width:32px;height:32px;flex-shrink:0;display:grid;place-items:center;border-radius:50%;background:var(--card);border:1px solid var(--line)}
 .who{font-size:10.5px;color:var(--muted);margin:0 4px 2px}

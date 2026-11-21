@@ -30,7 +30,7 @@ Each in-game day runs from 9 AM to 5 PM and lasts 12 real minutes. You get 7 day
 - **The pigeon LoveNote**: from Day 2 the pigeons write in. Accept, ask why, or refuse. If you refuse, they try again on later days.
 - **WorldArticlez**: the in-game browser's news site. Most searches say "Restricted access", but a few words open hidden pages (try the Goddess, the Pigeon CEO, the High Realm or PayToWork).
 - **Heartcoins**: you earn them every day. Spend them on the PayToWork job lottery. The Cupid Shop is coming soon.
-- **Warnings**: spam someone and they warn you, then send a FINAL WARNING. One more and your wings get clipped (a broken-screen ending).
+- **Spam limit**: up to 5 pointless forwards a day to the angel or the Goddess. The 4th gets a Warning and the 5th a FINAL WARNING. A 6th the same day clips your wings (a broken-screen ending, then you restart). The count resets every new day.
 - **Time over**: at 5 PM the desk closes and a "No overtime paid" notice appears. Click it to clock out and go to the next day.
 - **5 endings**.
 - **Trophies**: Browser → 🏆 My Achievements. They're saved separately and stay when you start a new week. Only "Delete everything" in About, or clearing the browser's data, removes them.

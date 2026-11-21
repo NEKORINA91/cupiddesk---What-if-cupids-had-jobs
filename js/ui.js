@@ -13,7 +13,7 @@ const WIN = {
   trash:     { t: "Trash", i: "🗑️", w: 340, h: null },
   about:     { t: "About Cupid OS", i: "ℹ️", w: 520, h: null }
 };
-let ui = { open: [], pos: {}, z: 10, sel: null, tab: "queue", mailSel: null, search: null, booted: false, last: Date.now(), page: null, article: 0, job: null, folder: "inbox", sentSel: null, compose: null };
+let ui = { open: [], pos: {}, z: 10, sel: null, tab: "queue", mailSel: null, search: null, booted: false, last: Date.now(), page: null, article: 0, job: null, folder: "inbox", sentSel: null, compose: null, seenCards: {}, chatSeen: {}, chatJump: false };
 
 /* ---------- small helpers ---------- */
 function fmt(ms) { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); }
@@ -130,14 +130,6 @@ function openWin(id) {
   ui.pos[id].z = ++ui.z;
 }
 function closeWin(id) { ui.open = ui.open.filter((x) => x !== id); }
-function winHtml(id, body) {
-  const w = WIN[id], p = ui.pos[id], top = p.z === ui.z;
-  return `<section class="win${top ? " top" : ""}${p.max ? " max" : ""}" data-win="${id}" style="left:${p.x}px;top:${p.y}px;width:${p.w}px;${p.h ? "height:" + p.h + "px;" : ""}z-index:${p.z}">
-    <header class="tb" data-drag="${id}"><span class="tb-t"><span class="tb-i">${w.i}</span>${esc(w.t)}</span>
-      <span class="tb-b">${id === "cupiddesk" ? `<button class="tbb" data-act="max" data-id="${id}" aria-label="Maximise">${p.max ? "❐" : "□"}</button>` : ""}<button class="tbb x" data-act="close" data-id="${id}" aria-label="Close">✕</button></span></header>
-    <div class="wb" data-scroll="${id}">${body}</div></section>`;
-}
-
 /* ---------- Cupiddesk app ---------- */
 const STATE_LABEL = { New: "New", Pending: "In progress", Escalated: "With the Psyche Squad", Closed: "Closed" };
 
@@ -220,7 +212,8 @@ function endingView() {
 
 function listCard(n) {
   const sel = ui.sel === n.id, pr = n.special ? "🐦 ???" : n.triage.sev ? PRIORITY[n.triage.sev].short : "?";
-  return `<button class="lcard st-${n.state}${sel ? " sel" : ""}${n.story ? " story" : ""}" data-act="select" data-id="${n.id}">
+  const fresh = !ui.seenCards[n.id]; ui.seenCards[n.id] = 1;
+  return `<button class="lcard st-${n.state}${sel ? " sel" : ""}${n.story ? " story" : ""}${fresh ? " fresh" : ""}" data-act="select" data-id="${n.id}">
     <div class="row sb"><span class="num">${esc(n.num)}</span><span class="pchip p${n.special ? 0 : n.triage.sev || 0}">${pr}</span></div>
     <div class="lc-title">${esc(n.title)}</div>
     <div class="row sb lc-meta"><span>${n.special ? "🐦" : avatar(n.from)} ${esc(n.from.split(" ")[0])}</span>
@@ -241,11 +234,12 @@ function listPane() {
 }
 
 function chatHtml(n) {
-  return n.chat.map((m) => {
+  const seen = ui.chatSeen[n.id] || 0; ui.chatSeen[n.id] = n.chat.length;
+  return n.chat.map((m, i) => {
     const me = m.who === "cupid", l2 = m.who === "l2";
     const name = me ? "You" : l2 ? L2_NAME : n.from;
     const av = me ? "💘" : l2 ? L2_E : n.special ? "🐦" : avatar(n.from);
-    return `<div class="msg-row${me ? " me" : ""}${l2 ? " l2" : ""}"><span class="av">${av}</span><div><div class="who">${esc(name)}</div><div class="bubble">${esc(m.text)}</div></div></div>`;
+    return `<div class="msg-row${me ? " me" : ""}${l2 ? " l2" : ""}${i >= seen && seen ? " fresh" : ""}"><span class="av">${av}</span><div><div class="who">${esc(name)}</div><div class="bubble">${esc(m.text)}</div></div></div>`;
   }).join("");
 }
 
@@ -461,31 +455,77 @@ function bootHtml() {
 }
 
 /* ---------- render ---------- */
-function render() {
-  if (!ui.booted) { $("#app").innerHTML = bootHtml(); return; }
-  const keep = {}, scroll = {}, a = document.activeElement;
-  const activeId = a && a.dataset && a.dataset.keep !== undefined ? a.id : null;
-  document.querySelectorAll("[data-keep]").forEach((el) => { keep[el.id] = el.value; });
-  document.querySelectorAll("[data-scroll]").forEach((el) => { scroll[el.dataset.scroll] = el.scrollTop; });
-  const unread = unreadCount();
+// Only the parts that changed are redrawn, so the desktop doesn't flash on every click.
+let shellBuilt = false, cache = {};
+function setHtml(el, key, html) { if (cache[key] === html) return false; cache[key] = html; el.innerHTML = html; return true; }
+
+function iconsHtml() {
   const icon = (id, e, l, b) => `<button class="icon" data-act="open" data-id="${id}"><span class="e">${e}</span><span class="l">${l}</span>${b ? `<span class="badge">${b}</span>` : ""}</button>`;
+  return icon("cupiddesk", "💘", "Cupiddesk") + icon("mailbox", "✉️", "NoFlight", unreadCount()) + icon("chart", "🥧", "Heart status") + icon("browser", "🌐", "Browser") + icon("shop", "🛍️", "Shop") + icon("trash", "🗑️", "Trash") + icon("about", "ℹ️", "About");
+}
+function taskbarHtml() {
   const s = game.shift;
-  $("#app").innerHTML = `<div class="screen"><div class="desktop" id="desktop">
+  return `<span class="start">💘 Cupid OS</span>
+    <span class="tasks">${ui.open.map((id) => `<button class="task${ui.pos[id].z === ui.z ? " on" : ""}" data-act="focus" data-id="${id}">${WIN[id].i}<span> ${esc(WIN[id].t)}</span></button>`).join("")}</span>
+    <span class="sp"></span>
+    ${s && s.status === "running" ? `<span class="tray-pill">Day ${game.day} · <span data-hour></span></span>` : ""}
+    <button class="tray" data-act="sound" title="Sound">${game.sound ? "🔊" : "🔇"}</button>
+    <span id="clock" class="tray"></span>`;
+}
+function headerHtml(id) {
+  const w = WIN[id], p = ui.pos[id];
+  return `<span class="tb-t"><span class="tb-i">${w.i}</span>${esc(w.t)}</span>
+    <span class="tb-b">${id === "cupiddesk" ? `<button class="tbb" data-act="max" data-id="${id}" aria-label="Maximise">${p.max ? "❐" : "□"}</button>` : ""}<button class="tbb x" data-act="close" data-id="${id}" aria-label="Close">✕</button></span>`;
+}
+
+function render() {
+  if (!ui.booted) { $("#app").innerHTML = bootHtml(); shellBuilt = false; return; }
+  if (!shellBuilt || !$("#desktop")) {
+    $("#app").innerHTML = `<div class="screen"><div class="desktop" id="desktop">
       <div class="deco" aria-hidden="true"><span>♥</span><span>♥</span><span>♥</span><span>♥</span><span>♥</span><span>☁</span><span>☁</span></div>
-      <div class="icons">${icon("cupiddesk", "💘", "Cupiddesk")}${icon("mailbox", "✉️", "NoFlight", unread)}${icon("chart", "🥧", "Heart status")}${icon("browser", "🌐", "Browser")}${icon("shop", "🛍️", "Shop")}${icon("trash", "🗑️", "Trash")}${icon("about", "ℹ️", "About")}</div>
-      <div class="watermark">${esc(NOTICE)}</div>
-      ${ui.open.map((id) => winHtml(id, BODY[id]())).join("")}
-    </div>
-    <nav class="taskbar"><span class="start">💘 Cupid OS</span>
-      <span class="tasks">${ui.open.map((id) => `<button class="task${ui.pos[id].z === ui.z ? " on" : ""}" data-act="focus" data-id="${id}">${WIN[id].i}<span> ${esc(WIN[id].t)}</span></button>`).join("")}</span>
-      <span class="sp"></span>
-      ${s && s.status === "running" ? `<span class="tray-pill">Day ${game.day} · <span data-hour>${gameHour()}</span></span>` : ""}
-      <button class="tray" data-act="sound" title="Sound">${game.sound ? "🔊" : "🔇"}</button>
-      <span id="clock" class="tray"></span></nav></div>`;
-  Object.keys(keep).forEach((id) => { const el = document.getElementById(id); if (el) el.value = keep[id]; });
-  document.querySelectorAll("[data-scroll]").forEach((el) => { if (scroll[el.dataset.scroll] != null) el.scrollTop = scroll[el.dataset.scroll]; });
-  if (activeId) { const el = document.getElementById(activeId); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } }
-  const c = $("#chat"); if (c) c.scrollTop = c.scrollHeight;
+      <div class="icons" id="icons"></div><div class="watermark">${esc(NOTICE)}</div><div id="wins"></div>
+    </div><nav class="taskbar" id="taskbar"></nav></div>`;
+    shellBuilt = true; cache = {};
+  }
+  const a = document.activeElement;
+  const activeId = a && a.dataset && a.dataset.keep !== undefined ? a.id : null;
+
+  setHtml($("#icons"), "icons", iconsHtml());
+  setHtml($("#taskbar"), "taskbar", taskbarHtml());
+
+  const wins = $("#wins");
+  wins.querySelectorAll(".win").forEach((el) => {
+    const id = el.dataset.win;
+    if (!ui.open.includes(id)) { el.remove(); delete cache["h:" + id]; delete cache["b:" + id]; }
+  });
+  ui.open.forEach((id) => {
+    const p = ui.pos[id];
+    let el = wins.querySelector(`[data-win="${id}"]`);
+    if (!el) {
+      el = document.createElement("section"); el.className = "win"; el.dataset.win = id;
+      el.innerHTML = `<header class="tb" data-drag="${id}"></header><div class="wb" data-scroll="${id}"></div>`;
+      wins.appendChild(el);
+    }
+    el.classList.toggle("top", p.z === ui.z); el.classList.toggle("max", !!p.max);
+    el.style.left = p.x + "px"; el.style.top = p.y + "px"; el.style.width = p.w + "px";
+    el.style.height = p.h ? p.h + "px" : ""; el.style.zIndex = p.z;
+    setHtml(el.querySelector(".tb"), "h:" + id, headerHtml(id));
+    const wb = el.querySelector(".wb"), html = BODY[id]();
+    if (cache["b:" + id] !== html) {
+      const keep = {}, scroll = {};
+      wb.querySelectorAll("[data-keep]").forEach((x) => { keep[x.id] = x.value; });
+      scroll[id] = wb.scrollTop;
+      wb.querySelectorAll("[data-scroll]").forEach((x) => { scroll[x.dataset.scroll] = x.scrollTop; });
+      const chat = wb.querySelector("#chat"), chatAtBottom = !chat || chat.scrollHeight - chat.scrollTop - chat.clientHeight < 40;
+      setHtml(wb, "b:" + id, html);
+      Object.keys(keep).forEach((k) => { const x = document.getElementById(k); if (x) x.value = keep[k]; });
+      wb.scrollTop = scroll[id] || 0;
+      wb.querySelectorAll("[data-scroll]").forEach((x) => { if (scroll[x.dataset.scroll] != null) x.scrollTop = scroll[x.dataset.scroll]; });
+      const c = wb.querySelector("#chat"); if (c && (chatAtBottom || ui.chatJump)) c.scrollTop = c.scrollHeight;
+    }
+  });
+  ui.chatJump = false;
+  if (activeId) { const el = document.getElementById(activeId); if (el && document.activeElement !== el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {} } }
   paintTimers();
 }
 
@@ -535,7 +575,7 @@ const acts = {
   newgame() { const name = game.cupid && game.cupid.name; wipeGame(); clockIn(name); introShift(); ui.sel = null; ui.mailSel = null; ui.sentSel = null; ui.compose = null; ui.page = null; render(); },
   pause() { togglePause(); ui.last = Date.now(); render(); },
   tab(el) { ui.tab = el.dataset.t; render(); },
-  select(el) { ui.sel = +el.dataset.id; render(); },
+  select(el) { ui.sel = +el.dataset.id; ui.chatJump = true; render(); },
   back() { ui.sel = null; render(); },
   pickup() { pickUp(ui.sel); ui.tab = "mine"; render(); },
   ask() { askDetails(ui.sel); render(); },
