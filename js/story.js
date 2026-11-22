@@ -20,7 +20,7 @@ const DAYS = [
   { title: "Day 1: First Flight", intro: "Your first day at the Cupiddesk. Pick up LoveNotes, calm the lovers down, and survive until 5 PM.",
     first: 4, every: 60, goal: 900, unlock: { triage: false, requests: false, l2: false }, types: ["incident"], maxSev: 2 },
   { title: "Day 2: Pigeon Mail", intro: "Triage starts today. Set the Category and Heart condition before closing a LoveNote.",
-    first: 4, every: 52, goal: 1200, unlock: { triage: true, requests: false, l2: false }, types: ["incident"], maxSev: 1 },
+    first: 4, every: 62, goal: 1000, unlock: { triage: true, requests: false, l2: false }, types: ["incident"], maxSev: 1 },
   { title: "Day 3: Requests Welcome", intro: "Requests (LNR numbers) arrive today. Fair ones go to the Psyche Squad. Impossible ones get declined.",
     first: 4, every: 48, goal: 1400, unlock: { triage: true, requests: true, l2: false }, types: ["incident", "request"], maxSev: 1 },
   { title: "Day 4: Call for Backup", intro: "You can escalate incidents to the Psyche Squad now, the Cupids' mythical backup team. Slower, fewer points, usually works.",
@@ -38,6 +38,7 @@ const PARTIES = {
   goddess: { name: "The Love Goddess", e: "👑", address: "goddess@love.divine" },
   angel:   { name: "Angel (High Realm)", e: "😇", address: "a.investigations@highrealm.heaven" },
   pigeons: { name: "Pigeon Spy", e: "🐦", address: "spy@coop.noflight" },
+  dev:     { name: "Nekorina91", e: "👾", address: "nekorina91@definitely-not-the-dev.cupid" },
   other:   { name: "", e: "✉️", address: "" }
 };
 // replies offered on mails that don't have their own (no one answers these)
@@ -60,6 +61,9 @@ const MAILS = [
   { id: "r-senior1", day: 1, at: 7, party: "other", kind: "random", from: "Senior Cupid", subject: "tip from the desk next door",
     body: "Hey rookie. Ask for details before you reply. People always say more than they mean to.\n\nAlso, don't read WorldArticlez during work. (Everyone reads WorldArticlez during work.)\n\n- Senior Cupid" },
 
+  { id: "g-investigation", day: 2, at: 0.5, party: "goddess", kind: "normal", from: "The Love Goddess", subject: "About the High Realm investigation",
+    body: "[PLACEHOLDER] To all Cupids,\n\nThe High Realm is conducting an investigation into the pigeons, and into us. We have nothing to hide.\n\nJust do your work. If anything comes up, let me know.\n\n- The Love Goddess",
+    replies: [{ text: "Understood, Goddess." }, { text: "Will do!" }] },
   { id: "r-spam1", day: 2, at: 1, party: "other", kind: "random", from: "Golden Arrow Prize Team", subject: "YOU WON a golden arrow!!!",
     body: "Congratulations Cupid! You have won a GOLDEN ARROW. To claim it, simply send us 400 Heartcoins and your wing measurements.\n\n(This is obviously spam.)" },
   { id: "a-first", day: 2, at: 7, party: "angel", kind: "angel", sets: "angelContact", from: "Angel (High Realm)", subject: "Confidential: a request for help",
@@ -109,8 +113,10 @@ const MAILS = [
    with a new message (one per attempt). Accepting gets you the Pigeon Spy's email. */
 const PIGEON_NOTE = {
   minute: 2,   // minutes into the day when it arrives
+  // The pigeon LoveNote arrives as an EMERGENCY. They don't write in like lovers do:
+  // they apologise and ask for help, one employee to a fellow employee.
   attempts: [
-    { title: "Urgent coo", text: "[PLACEHOLDER] Psst. Cupid. This isn't a normal LoveNote. We're the pigeons. We need to talk." },
+    { title: "EMERGENCY: sorry for this", text: "[PLACEHOLDER] Hey, sorry for this. We know this isn't what LoveNotes are for. But the issue is this: [what's going on]. We need your help, as one employee to a fellow employee. Coo." },
     { title: "Please read this", text: "[PLACEHOLDER] It's us again. Coo. We carried 400 LoveNotes yesterday for 4 crumbs each. Please, just talk to us." },
     { title: "Third time", text: "[PLACEHOLDER] Cupid. We know you read these. We're not leaving. Coo." },
     { title: "Last try", text: "[PLACEHOLDER] This is our last LoveNote to you. After this we stop asking. Coo..." }
@@ -187,19 +193,75 @@ const ENDINGS = {
   neutral:  { e: "⛓️", title: "Ending: Just Doing My Job", body: "[PLACEHOLDER] You kept your head down and worked until the end. The angel arrests you for not supporting the investigation." },
   // clipped: true = shows the broken-screen "CLIPPED WINGS" effect first
   spamAngel:   { e: "🚨", clipped: true, title: "Ending: Clipped Wings (Arrested)", body: "[PLACEHOLDER] You flooded the angel's inbox one too many times. They arrest you for wasting the High Realm's time." },
+  // skip two days in a row (no LoveNotes picked up at all) = fired, no free pass
+  lazy:     { e: "🛌", title: "Ending: No Free Pass", body: "[PLACEHOLDER] Two days in a row without touching a single LoveNote. The Love Goddess noticed. You're fired. No free pass." },
   spamGoddess: { e: "📦", clipped: true, title: "Ending: Clipped Wings (Fired)", body: "[PLACEHOLDER] You flooded the Goddess's inbox one too many times. You're fired. Please return your wings." }
 };
 
 /* ---------- WorldArticlez (in-game browser) ----------
-   day: the first day an article appears. */
+   day: the first day an article appears. section / subtitle are optional.
+   Formatting inside body:  "## Heading"   "* bullet point"   **bold**   blank line = new paragraph.
+   goodie: a wallpaper id; the article ends with the Goodies box (GOODIE_PROMO below). */
+const GOODIE_PROMO = {
+  title: "🎁 Hey! You came this far? Take a wallpaper for free!",
+  text: "Click below and take home one of our five exclusive CupidDesk wallpapers. No payment required. No questions asked. The Goddess has approved this promotion."
+};
 const ARTICLES = [
-  { day: 1, title: "Cupiddesk reaches sky high", body: "[PLACEHOLDER] The Love Goddess's Cupiddesk is mending more hearts than ever, according to the Love Goddess." },
+  { day: 1, goodie: "wp_letters", section: "Business & Economy", title: "CupidDesk Reaches Sky High",
+    subtitle: "From divine intervention to divine business management. What happened?",
+    body: `CupidDesk.co appears to be doing better than ever! Recent figures show that the organisation has improved its LoveNote delivery performance compared to last year. And this is all in less than twelve months!
+
+But how did the Goddess of Love go from managing divine affairs to becoming a business tycoon? What is the secret behind CupidDesk's sudden success? And, more importantly, how much does love cost these days?
+
+We investigated. Unfortunately, our investigation was interrupted by a pigeon. It refused to comment.
+
+## Love is in the numbers!
+According to our highly questionable but definitely official-looking statistics:
+* LoveNote processing efficiency has increased by 37%.
+* Customer satisfaction has risen by 42%.
+* Pigeon delivery costs have allegedly decreased by 18%.
+* Employee coffee consumption has increased by 200%.
+* The number of complaints about pigeons has reached an all-time high.
+
+CupidDesk representatives insist that these figures demonstrate a successful year. Our reporter asked whether the increase in coffee consumption was related to employee workload.
+
+The representative replied: "Next question, please."
+
+## A word from the CEO of Love herself
+We managed to get a statement from the Goddess of Love, CEO of CupidDesk and apparently the busiest divine being in the High Realm.
+
+**WorldArticlez:** What is the secret behind CupidDesk's success?
+**Goddess of Love:** "Love is not a currency. It is a feeling. We at CupidDesk try our utmost best to make sure you and your loved ones stay together."
+**WorldArticlez:** That's wonderful. But what about the new service fees?
+**Goddess of Love:** "Operational expenses."
+**WorldArticlez:** And the mandatory ring purchases?
+**Goddess of Love:** "A symbol of commitment."
+**WorldArticlez:** Is it true that CupidDesk has been making record profits?
+**Goddess of Love:** "We prefer to call them divine blessings."
+**WorldArticlez:** One last question. Why are pigeons complaining about their wages?
+**Goddess of Love:** "I have another meeting. Thank you."
+
+The interview ended shortly afterwards.
+
+## The future looks lovely!
+With new improvements, better services and an ambitious vision, CupidDesk seems determined to reach even greater heights.
+
+Whether this success comes from divine wisdom, excellent management or a very complicated accounting department remains unclear.
+
+One thing is certain: CupidDesk is going places.
+
+And hopefully, those places are within the approved delivery budget.` },
   { day: 1, title: "Pigeons say they need more than crumbs (literally??)", body: "[PLACEHOLDER] Pigeon mail volumes have dropped as lovers move to texting. The pigeons say crumbs no longer pay the bills." },
   { day: 2, title: "Pigeon CEO owns 3 bowls in this economy", body: "[PLACEHOLDER] While delivery pigeons get 4 crumbs, the Pigeon CEO was spotted with not one, not two, but THREE bowls." },
   { day: 3, title: "Cupid pay rates drop", body: "[PLACEHOLDER] Cupids report smaller Heartcoin payouts this month. The Goddess's office declined to comment." },
   { day: 4, title: "Pigeon pay hits record low as lovers go digital", body: "[PLACEHOLDER] 'Nobody writes letters anymore,' said one pigeon, sadly eating a crumb." },
   { day: 5, title: "Goddess-Approved Love Rings™ sell out", body: "[PLACEHOLDER] Couples everywhere are suddenly buying the same ring. Experts are confused." },
-  { day: 6, title: "High Realm 'looking into' love industry", body: "[PLACEHOLDER] A High Realm spokesperson confirmed nothing and denied nothing." }
+  { day: 6, title: "High Realm 'looking into' love industry", body: "[PLACEHOLDER] A High Realm spokesperson confirmed nothing and denied nothing." },
+  // Silly stories with a 🎁 Goodies button at the end (goodie = a wallpaper id from WALLPAPERS)
+  { day: 2, goodie: "wp_plaid", title: "[PLACEHOLDER: stupid headline 2]", body: "[PLACEHOLDER: stupid story 2]" },
+  { day: 3, goodie: "wp_sunset", title: "[PLACEHOLDER: stupid headline 3]", body: "[PLACEHOLDER: stupid story 3]" },
+  { day: 5, goodie: "wp_mint", title: "[PLACEHOLDER: stupid headline 4]", body: "[PLACEHOLDER: stupid story 4]" },
+  { day: 6, goodie: "wp_stars", title: "[PLACEHOLDER: stupid headline 5]", body: "[PLACEHOLDER: stupid story 5]" }
 ];
 
 /* ---------- search: most words are restricted, a few open hidden pages ----------
@@ -241,10 +303,23 @@ const PIGEON_POOF = {
    id "vpn" is the Birb Connections VPN. Items without an id are "coming soon". */
 const SHOP_ITEMS = [
   { id: "vpn", name: "Birb Connections VPN", e: "🐦", price: 150, desc: "You search. We don't know. Unlocks secret search results in the browser." },
-  { name: "Fancy wings", e: "🪽", price: 120 },
+  { id: "wing", consumable: true, name: "Spare Wing", e: "🪽", price: 120, desc: "Mess up a LoveNote badly? An extra helper swoops in and saves it as a success. One use per wing." },
+  { id: "plant", name: "Desk plant (not Gerald)", e: "🪴", price: 60, desc: "A plant for your desktop. It's just a plant." },
   { name: "Golden arrow (real one)", e: "🏹", price: 300 },
-  { name: "Desk plant (not Gerald)", e: "🪴", price: 60 },
   { name: "Extra crumbs for the pigeons", e: "🍞", price: 40 }
+];
+
+/* ---------- Wallpapers ----------
+   Find them behind the 🎁 Goodies button at the end of some WorldArticlez stories (see ARTICLES "goodie").
+   Once found, they're free in the Cupid Shop. They stay even when you start a new week.
+   css: any CSS background. */
+const WALLPAPERS = [
+  { id: "default", name: "Cupid Pink", css: null },
+  { id: "wp_sunset", name: "Sunset Over the Coop", css: "linear-gradient(180deg,#f6d6c6 0%,#f1bfcc 45%,#cbbbe3 100%)" },
+  { id: "wp_stars", name: "Starry Night Shift", css: "radial-gradient(circle,#fff 1px,transparent 1.6px) 0 0/44px 44px, radial-gradient(circle,rgba(255,255,255,.6) 1px,transparent 1.6px) 22px 22px/66px 66px, linear-gradient(180deg,#2f2850,#4b3866)" },
+  { id: "wp_letters", name: "Love Letter Stripes", css: "repeating-linear-gradient(45deg,#f5e2e9 0 20px,#fbf0f4 20px 40px)" },
+  { id: "wp_plaid", name: "Pigeon Plaid", css: "repeating-linear-gradient(0deg,rgba(120,130,155,.16) 0 2px,transparent 2px 26px), repeating-linear-gradient(90deg,rgba(120,130,155,.16) 0 2px,transparent 2px 26px), #e8ebf1" },
+  { id: "wp_mint", name: "Mint Clouds", css: "radial-gradient(800px 500px at 20% 20%,#d6efe2,transparent 60%), radial-gradient(700px 500px at 80% 70%,#e3e0f5,transparent 60%), #edf5f1" }
 ];
 
 /* ---------- Trophies (My Achievements, in the browser) ----------
@@ -262,18 +337,44 @@ const TROPHIES = [
   { id: "pigeon_pal", e: "🐦", name: "Pigeon Pal", desc: "Give the pigeons your email." },
   { id: "cold_shoulder", e: "🧊", name: "Cold Shoulder", desc: "Refuse the pigeons every single time." },
   { id: "first_evidence", e: "📨", name: "Whistleblower", desc: "Send the angel real evidence." },
-  { id: "snitch", e: "👑", name: "Teacher's Pet", desc: "Report someone to the Goddess." },
+  { id: "snitch", e: "👑", name: "Teacher's Pet", desc: "Report 3 things to the Goddess." },
   { id: "nosy", e: "🔒", name: "Restricted Access", desc: "Hit 'Restricted access' 5 times." },
   { id: "hidden_all", e: "🗝️", name: "Deep Web Cupid", desc: "Find every hidden page." },
   { id: "vpn", e: "🕶️", name: "Off the Grid", desc: "Buy the Birb Connections VPN." },
   { id: "vpn_all", e: "🛰️", name: "Birb's Eye View", desc: "Find every secret VPN page." },
   { id: "pigeon_5", e: "🪶", name: "What Did I Do?", desc: "Make 5 flying pigeons go poof." },
+  { id: "all_items", e: "🍞", name: "Literally Crumbs?", desc: "Buy every item in the Cupid Shop at least once." },
+  { id: "wp_all", e: "🖼️", name: "Serious Dedication", desc: "Collect all 5 hidden wallpapers." },
+  { id: "tea", e: "🫖", name: "Tea Tastes Best When Served Hot", desc: "Forward everyone's mail to everyone: Goddess, angel and pigeon mail to both of the others." },
   { id: "news_junkie", e: "📰", name: "News Junkie", desc: "Read 5 WorldArticlez stories." },
   { id: "paytowork", e: "🎰", name: "Employed (Sort Of)", desc: "Win a job from PayToWork." },
   { id: "end_angel", e: "😇", name: "Ending: The Report", desc: "Help the angel." },
   { id: "end_pigeons", e: "🪶", name: "Ending: Feathers Fly", desc: "Help the pigeons." },
   { id: "end_neutral", e: "⛓️", name: "Ending: Just Doing My Job", desc: "Stay out of it." },
   { id: "end_spamAngel", e: "🚨", name: "Ending: Clipped Wings (Arrested)", desc: "Annoy the angel too much." },
+  { id: "end_lazy", e: "🛌", name: "Ending: No Free Pass", desc: "Skip two days in a row." },
   { id: "end_spamGoddess", e: "📦", name: "Even Love Has a Patience Limit", desc: "Get fired by the Love Goddess for spamming her." },
-  { id: "all_endings", e: "🏆", name: "Seen It All", desc: "Find every ending." }
+  { id: "all_endings", e: "🏆", name: "Seen It All", desc: "Find every ending." },
+  // secret: hidden as "Secret achievement" until unlocked. rare: shown with a special badge.
+  { id: "dev_found", e: "👾", secret: true, rare: true, name: "Original Source of All Problems", desc: "Find the developer's secret console." },
+  { id: "dev_used", e: "🛠️", secret: true, rare: true, name: "I'm Too Lazy...", desc: "Use a developer cheat instead of doing your job." }
 ];
+
+/* ---------- the developer's secret ----------
+   Search this in the in-game browser to open the Developer Console (testing tools). */
+const DEV_SEARCH = "nekorina91";
+
+// The first time you open the console, the developer "accidentally" emails you.
+// Which mail you get depends on whether the Birb Connections VPN is on.
+const DEV_MAIL = {
+  noVpn: { subject: "they see everything...", body: "They see everything...\n\nSorry, wrong mail. Delete this now.\n\n- Nekorina91" },
+  vpn:   { subject: "hey", body: "Hey, you forgot to remove that.\n\n- Nekorina91" },
+  // replying to the developer's mail bounces back
+  bounce: { from: "Mail Delivery System", subject: "Undeliverable: ", body: "Your message could not be delivered.\n\nReason: the sender does not exist.\n\n(They were never here. You saw nothing.)" },
+  // what each side says if you forward the developer's mail to them
+  forward: {
+    goddess: "Sometimes it's better to turn a blind eye, Cupid.",
+    angel: "We aren't paid enough to deal with this. - A.",
+    pigeons: "Coo? Coo coo. COO. *flapping* Coo...?"
+  }
+};

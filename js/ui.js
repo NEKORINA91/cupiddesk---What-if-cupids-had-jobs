@@ -116,7 +116,9 @@ function flushEvents() {
     if (e.type === "ending") { closeWin("overtime"); again = true; }
     if (SFX[e.type]) SFX[e.type]();
     if (e.type === "arrive") flyPigeon(e.data);
-    if (e.type === "landed") toast("💌 " + e.data.num + " landed: " + e.data.title);
+    if (e.type === "wing") toast("🪽 Spare wing used! " + e.data.num + " was saved.", "ok");
+    if (e.type === "landed") toast((e.data.emergency ? "🚨 EMERGENCY LoveNote: " : "💌 " + e.data.num + " landed: ") + e.data.title, e.data.emergency ? "bad" : "");
+    if (e.type === "landed" && e.data.emergency) beep([[880, .15], [660, .15], [880, .15], [660, .2]], "square");
     if (e.type === "mail") mailPop(e.data);
     if (e.type === "closed") toast(RESOLUTION[e.data.resolution].e + " " + e.data.num + ": " + RESOLUTION[e.data.resolution].label + " (" + (e.data.points >= 0 ? "+" : "") + e.data.points + ")", "ok");
     if (e.type === "broken") toast(RESOLUTION[e.data.resolution].e + " " + e.data.num + ": " + RESOLUTION[e.data.resolution].label + " (" + e.data.points + ")", "bad");
@@ -243,10 +245,10 @@ function endingView() {
 }
 
 function listCard(n) {
-  const sel = ui.sel === n.id, pr = n.special ? "🐦 ???" : n.triage.sev ? PRIORITY[n.triage.sev].short : "?";
+  const sel = ui.sel === n.id, pr = n.emergency ? "🚨 EMERGENCY" : n.special ? "🐦 ???" : n.triage.sev ? PRIORITY[n.triage.sev].short : "?";
   const fresh = !ui.seenCards[n.id]; ui.seenCards[n.id] = 1;
-  return `<button class="lcard st-${n.state}${sel ? " sel" : ""}${n.story ? " story" : ""}${fresh ? " fresh" : ""}" data-act="select" data-id="${n.id}">
-    <div class="row sb"><span class="num">${esc(n.num)}</span><span class="pchip p${n.special ? 0 : n.triage.sev || 0}">${pr}</span></div>
+  return `<button class="lcard st-${n.state}${sel ? " sel" : ""}${n.story ? " story" : ""}${n.emergency && n.state !== "Closed" ? " emergency" : ""}${fresh ? " fresh" : ""}" data-act="select" data-id="${n.id}">
+    <div class="row sb"><span class="num">${esc(n.num)}</span><span class="pchip p${n.emergency ? "1 emg" : n.special ? 0 : n.triage.sev || 0}">${pr}</span></div>
     <div class="lc-title">${esc(n.title)}</div>
     <div class="row sb lc-meta"><span>${n.special ? "🐦" : avatar(n.from)} ${esc(n.from.split(" ")[0])}</span>
       ${n.state === "Pending" && !n.special ? `<span class="mini-timer" data-timer="${n.id}"></span>` : n.state === "Closed" ? `<span>${RESOLUTION[n.resolution].e}</span>` : n.state === "Escalated" ? "<span>🦋</span>" : '<span class="dot-new"></span>'}</div>
@@ -338,7 +340,7 @@ function detailPane() {
       <div class="chat" id="chat">${chatHtml(n)}</div>`;
   }
   return `<div class="cd-detail">
-    <div class="dt-head"><button class="btn ghost sm back" data-act="back">← Back</button><span class="num">${esc(n.num)}</span><span class="state s-${n.state}">${STATE_LABEL[n.state]}</span>${n.story ? '<span class="state s-story">⭐ Story</span>' : ""}</div>
+    <div class="dt-head"><button class="btn ghost sm back" data-act="back">← Back</button><span class="num">${esc(n.num)}</span><span class="state s-${n.state}">${STATE_LABEL[n.state]}</span>${n.emergency ? '<span class="state s-emg">🚨 Emergency</span>' : n.story ? '<span class="state s-story">⭐ Story</span>' : ""}</div>
     <h2>${esc(n.title)}</h2>
     <div class="muted from">${esc(n.from)} · ${esc(n.place)}</div>
     ${fieldsHtml(n)}
@@ -374,8 +376,10 @@ function chartWin() {
 
 function mailTable(rows) { return `<table class="mh">${rows.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</table>`; }
 function quoteHtml(m, label) {
-  return `<div class="quote"><div class="q-head">---------- ${label} ----------<br>From: ${esc(m.from)} &lt;${esc(fromAddress(m))}&gt;<br>Date: Day ${m.day} · ${esc(m.time || "")}<br>Subject: ${esc(m.subject)}</div><div class="q-body">${esc(m.body)}</div></div>`;
+  return `<div class="quote"><div class="q-head">---------- ${label} ----------<br>From: ${esc(m.from)}${addrTag(m)}<br>Date: Day ${m.day} · ${esc(m.time || "")}<br>Subject: ${esc(m.subject)}</div><div class="q-body">${esc(m.body)}</div></div>`;
 }
+// the developer's address is never shown
+function addrTag(m) { return m.party === "dev" ? "" : ` &lt;${esc(fromAddress(m))}&gt;`; }
 function partyE(m) { return (PARTIES[m.party] || PARTIES.other).e; }
 
 function composeHtml(m) {
@@ -383,7 +387,7 @@ function composeHtml(m) {
   if (c.mode === "reply") {
     const list = mailReplies(m);
     return `<div class="compose"><div class="c-title">↩ Reply</div>
-      ${mailTable([["From", `You &lt;${esc(myAddress())}&gt;`], ["To", `${esc(m.from)} &lt;${esc(fromAddress(m))}&gt;`], ["Subject", "Re: " + esc(m.subject)]])}
+      ${mailTable([["From", `You &lt;${esc(myAddress())}&gt;`], ["To", `${esc(m.from)}${addrTag(m)}`], ["Subject", "Re: " + esc(m.subject)]])}
       <div class="c-label">Message</div>
       <div class="c-opts">${list.map((r, i) => `<button class="copt${c.idx === i ? " on" : ""}" data-act="cpick" data-i="${i}">${esc(r.text)}</button>`).join("")}</div>
       <div class="row"><button class="btn primary" data-act="csend"${c.idx == null ? " disabled" : ""}>Send ✉️</button><button class="btn ghost" data-act="ccancel">Discard</button></div></div>`;
@@ -408,7 +412,7 @@ function mailWin() {
     const m = game.mails.find((x) => x.key === ui.mailSel);
     if (m) read = `<div class="mtool"><button class="btn soft sm" data-act="compose" data-m="reply"${m.replied != null ? " disabled" : ""}>↩ Reply</button><button class="btn soft sm" data-act="compose" data-m="forward"${game.ending ? " disabled" : ""}>➡ Forward</button></div>
       <h3 class="msubj">${esc(m.subject)}</h3>
-      ${mailTable([["From", `${partyE(m)} <b>${esc(m.from)}</b> &lt;${esc(fromAddress(m))}&gt;`], ["To", m.toAll ? "All Cupids &lt;all-cupids@cupiddesk.love&gt;" : `You &lt;${esc(myAddress())}&gt;`], ["Date", `Day ${m.day} · ${esc(m.time || "")}`]])}
+      ${mailTable([["From", `${partyE(m)} <b>${esc(m.from)}</b>${addrTag(m)}`], ["To", m.toAll ? "All Cupids &lt;all-cupids@cupiddesk.love&gt;" : `You &lt;${esc(myAddress())}&gt;`], ["Date", `Day ${m.day} · ${esc(m.time || "")}`]])}
       <div class="mail-body">${esc(m.body)}</div>
       ${m.replied != null ? `<div class="sent">↩ You replied: “${esc(mailReplies(m)[m.replied].text)}”</div>` : ""}
       ${m.fwd.length ? `<div class="sent fw">➡ Forwarded to: ${m.fwd.map((p) => PARTIES[p].name).join(", ")}</div>` : ""}
@@ -416,7 +420,7 @@ function mailWin() {
   } else {
     const s = game.sent.find((x) => x.key === ui.sentSel);
     if (s) read = `<h3 class="msubj">${esc(s.subject)}</h3>
-      ${mailTable([["From", `💘 <b>You</b> &lt;${esc(myAddress())}&gt;`], ["To", `${esc(s.to)} &lt;${esc(s.toAddr || "")}&gt;`], ["Date", `Day ${s.day} · ${esc(s.time || "")}`]])}
+      ${mailTable([["From", `💘 <b>You</b> &lt;${esc(myAddress())}&gt;`], ["To", `${esc(s.to)}${s.toAddr ? ` &lt;${esc(s.toAddr)}&gt;` : ""}`], ["Date", `Day ${s.day} · ${esc(s.time || "")}`]])}
       ${s.body ? `<div class="mail-body">${esc(s.body)}</div>` : ""}
       ${s.quote ? quoteHtml(s.quote, s.forward ? "Forwarded message" : "Original message") : ""}`;
   }
@@ -429,8 +433,8 @@ function trophiesPage() {
   return `<div class="trophy-head"><div class="big-e">🏆</div><h2>My Achievements</h2>
     <p><b>${got}</b> of ${TROPHIES.length} trophies · Endings found: <b>${endingsFound()}</b> of ${Object.keys(ENDINGS).length}</p>
     <p class="tiny muted">Saved in this browser. Starting a new week won't remove them.</p></div>
-    <div class="tgrid">${TROPHIES.map((t) => { const g = trophies.got[t.id], ending = t.id.startsWith("end_");
-      return `<div class="trophy${g ? " got" : ""}"><span class="t-e">${g ? t.e : "🔒"}</span><b>${g || !ending ? esc(t.name) : "Hidden ending"}</b><small>${g || !ending ? esc(t.desc) : "???"}</small>${g ? `<small class="t-date">Unlocked ${esc(g)}</small>` : ""}</div>`; }).join("")}</div>`;
+    <div class="tgrid">${TROPHIES.map((t) => { const g = trophies.got[t.id], hide = !g && (t.secret || t.id.startsWith("end_"));
+      return `<div class="trophy${g ? " got" : ""}${g && t.rare ? " rare" : ""}"><span class="t-e">${g ? t.e : t.secret ? "❔" : "🔒"}</span>${g && t.rare ? '<small class="rare-tag">✦ RARE</small>' : ""}<b>${hide ? (t.secret ? "Secret achievement" : "Hidden ending") : esc(t.name)}</b><small>${hide ? "???" : esc(t.desc)}</small>${g ? `<small class="t-date">Unlocked ${esc(g)}</small>` : ""}</div>`; }).join("")}</div>`;
 }
 
 function overtimeWin() {
@@ -440,6 +444,20 @@ function overtimeWin() {
     <p class="tiny muted">Open LoveNotes go to the night shift.</p></div>`;
 }
 
+// tiny article formatter: ## headings, * bullets, **bold**, blank line = paragraph
+function articleHtml(text) {
+  const inline = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  let html = "", list = false;
+  String(text || "").split("\n").forEach((line) => {
+    const l = line.trim();
+    if (l.startsWith("* ")) { if (!list) { html += "<ul>"; list = true; } html += `<li>${inline(l.slice(2))}</li>`; return; }
+    if (list) { html += "</ul>"; list = false; }
+    if (!l) return;
+    if (l.startsWith("## ")) html += `<h3>${inline(l.slice(3))}</h3>`;
+    else html += `<p>${inline(l)}</p>`;
+  });
+  return html + (list ? "</ul>" : "");
+}
 function findHidden(q) {
   const s = q.toLowerCase().trim();
   return HIDDEN_PAGES.find((p) => p.keys.some((k) => s === k || s.includes(k)));
@@ -449,8 +467,9 @@ function browserWin() {
   if (ui.page === "trophies") return `<div class="page">${bar("cupidos://my-achievements")}${trophiesPage()}</div>`;
   if (ui.page === "article") {
     const a = ARTICLES[ui.article];
-    return `<div class="page">${bar("worldarticlez://news/" + ui.article)}<div class="wa-art"><div class="kicker">WorldArticlez</div><h2>${esc(a.title)}</h2><p>${esc(a.body)}</p><button class="btn ghost sm" data-act="home">← All articles</button></div></div>`;
+    return `<div class="page">${bar("worldarticlez://news/" + ui.article)}<div class="wa-art"><div class="kicker">WorldArticlez${a.section ? " | " + esc(a.section) : ""}</div><h2>${esc(a.title)}</h2>${a.subtitle ? `<p class="wa-sub">${esc(a.subtitle)}</p>` : ""}<div class="wa-body">${articleHtml(a.body)}</div>${a.goodie ? `<div class="goodie"><b>${esc(GOODIE_PROMO.title)}</b><p>${esc(GOODIE_PROMO.text)}</p>${trophies.wallpapers[a.goodie] ? "<span class=\"claimed\">✓ Claimed! It's in the Cupid Shop.</span>" : `<button class="btn primary" data-act="goodie" data-id="${a.goodie}">🎁 GOODIES</button>`}</div>` : ""}<button class="btn ghost sm" data-act="home">← All articles</button></div></div>`;
   }
+  if (ui.page === "search" && isDevSearch(ui.search)) return `<div class="page devpage">${bar("cupidos://dev/nekorina91")}${devPage()}</div>`;
   if (ui.page === "search") {
     const h = findHidden(ui.search || "");
     const v = !h && vpnActive() ? findVpnPage(ui.search || "") : null;
@@ -461,7 +480,42 @@ function browserWin() {
   }
   const list = ARTICLES.map((a, i) => [a, i]).filter(([a]) => a.day <= game.day).reverse();
   return `<div class="page">${bar("worldarticlez://home")}<div class="wa-logo">🌍 World<b>Articlez</b></div>
-    ${list.map(([a, i]) => `<button class="hl" data-act="article" data-i="${i}"><a>${esc(a.title)}</a><small>WorldArticlez · Day ${a.day}</small></button>`).join("")}</div>`;
+    ${list.map(([a, i]) => `<button class="hl" data-act="article" data-i="${i}"><a>${esc(a.title)}</a>${a.subtitle ? `<span class="hl-sub">${esc(a.subtitle)}</span>` : ""}<small>WorldArticlez${a.section ? " · " + esc(a.section) : ""} · Day ${a.day}</small></button>`).join("")}</div>`;
+}
+
+/* ---------- Developer Console (search "Nekorina91" in the browser) ---------- */
+function isDevSearch(q) { return (q || "").trim().toLowerCase() === DEV_SEARCH; }
+function devPage() {
+  const s = game.shift, st = s && s.status;
+  const btn = (act, label, extra) => `<button class="dev-btn" data-act="dev" data-do="${act}"${extra || ""}>${label}</button>`;
+  return `<div class="dev">
+    <div class="dev-title">&gt; DEVELOPER CONSOLE<span class="blink">_</span></div>
+    <div class="dev-sub">// hello, Nekorina91. everything here is a cheat.</div>
+    <div class="dev-state">day=${game.day} status=${st || "none"} coins=${game.coins} wings=${game.owned.wing || 0} ending=${game.ending || "null"}</div>
+    <div class="dev-sec">jump to day</div><div class="dev-row">${DAYS.map((d, i) => btn("day" + (i + 1), "Day " + (i + 1))).join("")}</div>
+    <div class="dev-sec">time</div><div class="dev-row">${btn("clock", "⏩ Skip to 4:59 PM", st !== "running" ? " disabled" : "")}${btn("burst", "🕊️ Send 3 LoveNotes now", st !== "running" ? " disabled" : "")}</div>
+    <div class="dev-sec">stuff</div><div class="dev-row">${btn("coins100", "+100 🪙")}${btn("coins1000", "+1000 🪙")}${btn("wing", "+1 🪽 Spare Wing")}${btn("wallpapers", "🖼️ Unlock all wallpapers")}</div>
+    <div class="dev-sec">story</div><div class="dev-row">${btn("contacts", "📇 Unlock pigeon + angel contacts")}${btn("mails", "✉️ Deliver all of today's mails", st !== "running" ? " disabled" : "")}</div>
+    <div class="dev-sec">endings</div><div class="dev-row">${Object.keys(ENDINGS).map((k) => btn("end:" + k, ENDINGS[k].e + " " + k)).join("")}</div>
+    <div class="dev-sub">// tip: open the game as index.html?dev to skip the boot screen</div>
+  </div>`;
+}
+function devDo(what) {
+  const s = game.shift;
+  if (what.startsWith("day")) { game.ending = null; game.day = +what.slice(3); introShift(); ui.sel = null; }
+  else if (what === "clock" && s && s.status === "running") s.started = game.clock - (dayLength() - 60000);
+  else if (what === "burst" && s && s.status === "running") { for (let i = 0; i < 3; i++) generateNote(); }
+  else if (what === "coins100") game.coins += 100;
+  else if (what === "coins1000") game.coins += 1000;
+  else if (what === "wing") game.owned.wing = (game.owned.wing || 0) + 1;
+  else if (what === "wallpapers") WALLPAPERS.forEach((w) => { if (w.css) claimGoodie(w.id); });
+  else if (what === "contacts") { game.story.flags.pigeonContact = true; game.story.flags.angelContact = true; }
+  else if (what === "mails" && s && s.status === "running") s.started = Math.min(s.started, game.clock - (DAY_MINUTES - 1) * 60000 + 1000);
+  else if (what.startsWith("end:")) triggerEnding(what.slice(4));
+  else return;
+  save();
+  award("dev_used");
+  toast("🛠️ " + what + " done");
 }
 
 function shopWin() {
@@ -469,8 +523,13 @@ function shopWin() {
     <p class="muted tiny">Earn Heartcoins by mending hearts. More items coming soon!</p>
     <div class="shop">${SHOP_ITEMS.map((s) => `<div class="shop-item${s.id ? " live" : ""}"><span class="big-e">${s.e}</span><b>${esc(s.name)}</b>${s.desc ? `<small class="muted">${esc(s.desc)}</small>` : ""}<small>🪙 ${s.price}</small>${
       !s.id ? '<button class="btn soft sm" disabled>Coming soon</button>'
-      : game.owned[s.id] ? '<button class="btn ghost sm" disabled>✓ Owned</button>'
-      : `<button class="btn primary sm" data-act="buy" data-id="${s.id}"${game.coins < s.price ? " disabled" : ""}>Buy</button>`}</div>`).join("")}</div></div>`;
+      : game.owned[s.id] && !s.consumable ? '<button class="btn ghost sm" disabled>✓ Owned</button>'
+      : `${s.consumable && game.owned[s.id] ? `<small class="own">You have ${game.owned[s.id]}</small>` : ""}<button class="btn primary sm" data-act="buy" data-id="${s.id}"${game.coins < s.price ? " disabled" : ""}>Buy</button>`}</div>`).join("")}</div>
+    <h3 class="shop-h">🖼️ Wallpapers</h3>
+    <p class="muted tiny">Free! Find them behind 🎁 Goodies buttons in WorldArticlez stories. Found ${WALLPAPERS.filter((w) => w.css && trophies.wallpapers[w.id]).length} of ${WALLPAPERS.length - 1}.</p>
+    <div class="shop wps">${WALLPAPERS.map((w) => { const have = w.id === "default" || trophies.wallpapers[w.id], on = trophies.wallpaper === w.id;
+      return `<div class="shop-item wp${on ? " on" : ""}"><span class="swatch" style="${have && w.css ? "background:" + w.css : have ? "background:var(--wall)" : ""}">${have ? "" : "🔒"}</span><b>${have ? esc(w.name) : "???"}</b>${
+        on ? '<button class="btn ghost sm" disabled>✓ In use</button>' : have ? `<button class="btn soft sm" data-act="wallpaper" data-id="${w.id}">Use</button>` : '<small class="muted">Hidden in an article</small>'}</div>`; }).join("")}</div></div>`;
 }
 
 function trashWin() {
@@ -520,7 +579,7 @@ function render() {
   if (!shellBuilt || !$("#desktop")) {
     $("#app").innerHTML = `<div class="screen"><div class="desktop" id="desktop">
       <div class="deco" aria-hidden="true"><span>♥</span><span>♥</span><span>♥</span><span>♥</span><span>♥</span><span>☁</span><span>☁</span></div>
-      <div class="icons" id="icons"></div><div class="watermark">${esc(NOTICE)}</div><div id="wins"></div>
+      <div class="icons" id="icons"></div><div id="extras"></div><div class="watermark">${esc(NOTICE)}</div><div id="wins"></div>
     </div><nav class="taskbar" id="taskbar"></nav></div>`;
     shellBuilt = true; cache = {};
   }
@@ -528,6 +587,10 @@ function render() {
   const activeId = a && a.dataset && a.dataset.keep !== undefined ? a.id : null;
 
   setHtml($("#icons"), "icons", iconsHtml());
+  setHtml($("#extras"), "extras", game.owned.plant ? '<div class="plant" aria-hidden="true">🪴</div>' : "");
+  const wp = WALLPAPERS.find((w) => w.id === trophies.wallpaper);
+  const desk = $("#desktop"), bg = wp && wp.css ? wp.css : "";
+  if (desk.dataset.wp !== trophies.wallpaper) { desk.style.background = bg; desk.dataset.wp = trophies.wallpaper; desk.classList.toggle("wp-dark", trophies.wallpaper === "wp_stars"); }
   setHtml($("#taskbar"), "taskbar", taskbarHtml());
 
   const wins = $("#wins");
@@ -621,6 +684,7 @@ const acts = {
   sound() { game.sound = !game.sound; save(); render(); },
   search() {
     ui.search = val("q") || ""; ui.page = ui.search ? "search" : null; ui.job = null;
+    if (ui.search && isDevSearch(ui.search)) { award("dev_found"); setTimeout(() => { devMail(); render(); flushEvents(); }, 2500); render(); flushEvents(); return; }
     if (ui.search) {
       const h = findHidden(ui.search);
       const v = !h && vpnActive() ? findVpnPage(ui.search) : null;
@@ -632,8 +696,15 @@ const acts = {
     render(); flushEvents();
   },
   trophies() { ui.page = "trophies"; render(); },
-  buy(el) { if (buy(el.dataset.id)) { toast("🛍️ Bought! " + (el.dataset.id === "vpn" ? "Birb Connections is now in your browser." : "")); SFX.closed(); } render(); flushEvents(); },
+  dev(el) { devDo(el.dataset.do); render(); flushEvents(); },
+  buy(el) {
+    const id = el.dataset.id;
+    if (buy(id)) { toast("🛍️ Bought! " + ({ vpn: "Birb Connections is now in your browser.", wing: "A spare wing is ready to save your next disaster.", plant: "Your plant is on the desktop." }[id] || "")); SFX.closed(); }
+    render(); flushEvents();
+  },
   vpn() { game.vpnOn = !game.vpnOn; save(); render(); },
+  goodie(el) { if (claimGoodie(el.dataset.id)) { const w = WALLPAPERS.find((x) => x.id === el.dataset.id); toast("🎁 New wallpaper: " + w.name + "! Free in the Cupid Shop."); SFX.closed(); } render(); flushEvents(); },
+  wallpaper(el) { setWallpaper(el.dataset.id); render(); },
   goto(el) { ui.search = el.dataset.q; const h = findHidden(ui.search); if (h) { trophies.found[h.keys[0]] = 1; if (HIDDEN_PAGES.every((p) => trophies.found[p.keys[0]])) award("hidden_all"); saveTrophies(); } ui.page = "search"; ui.job = null; render(); flushEvents(); },
   home() { ui.page = null; ui.search = ""; render(); },
   article(el) { ui.page = "article"; ui.article = +el.dataset.i; trophies.articles[ui.article] = 1; saveTrophies(); if (Object.keys(trophies.articles).length >= 5) award("news_junkie"); render(); flushEvents(); },
@@ -700,5 +771,6 @@ function finishBoot() {
 }
 
 render();
-setTimeout(finishBoot, 2200);
+// Add ?dev to the address (index.html?dev) to skip the boot screen while testing.
+setTimeout(finishBoot, /[?&]dev\b/.test(location.search) ? 0 : 2200);
 setInterval(tick, 250);

@@ -110,9 +110,10 @@ const RESOLUTION = {
   broken:    { label: "Heartbroken",           e: "💔", stars: 1 },
   nightshift:     { label: "Handed to night shift", e: "🌙", stars: 3, special: true },
   pigeonAccepted: { label: "Pigeon contact made",   e: "🐦", stars: 3, special: true },
-  pigeonRefused:  { label: "Pigeons refused",       e: "🙅", stars: 3, special: true }
+  pigeonRefused:  { label: "Pigeons refused",       e: "🙅", stars: 3, special: true },
+  wingsaved:      { label: "Saved by a spare wing", e: "🪽", stars: 4 }
 };
-const POINTS = { nightshift: 0, pigeonAccepted: 0, pigeonRefused: 0, mended: 100, patched: 50, l2mended: 45, fulfilled: 80, declined: 70, wrongdecline: -40, broken: -50, triageRight: 15, triageWrong: -10, perSecondLeft: 1 };
+const POINTS = { wingsaved: 60, nightshift: 0, pigeonAccepted: 0, pigeonRefused: 0, mended: 100, patched: 50, l2mended: 45, fulfilled: 80, declined: 70, wrongdecline: -40, broken: -50, triageRight: 15, triageWrong: -10, perSecondLeft: 1 };
 
 /* ---------- the Psyche Squad (automated backup team) ----------
    Named after Psyche, who (in the old myth) married Cupid and survived impossible tasks.

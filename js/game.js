@@ -35,7 +35,7 @@ function wipeGame() { try { localStorage.removeItem(KEY); } catch (e) {} game = 
 
 /* ---------- Trophies: a separate save that survives new games ---------- */
 const TKEY = "cupiddesk_trophies";
-function freshTrophies() { return { got: {}, found: {}, articles: {}, restricted: 0 }; }
+function freshTrophies() { return { got: {}, found: {}, articles: {}, restricted: 0, wallpapers: {}, wallpaper: "default" }; }
 let trophies = (() => { try { return Object.assign(freshTrophies(), JSON.parse(localStorage.getItem(TKEY) || "{}")); } catch (e) { return freshTrophies(); } })();
 function saveTrophies() { try { localStorage.setItem(TKEY, JSON.stringify(trophies)); } catch (e) {} }
 function wipeEverything() { try { localStorage.removeItem(TKEY); } catch (e) {} trophies = freshTrophies(); wipeGame(); }
@@ -114,6 +114,8 @@ function endShift() {
   if (isLastDay()) award("full_week");
   if (isLastDay() && game.history.length >= DAYS.length && game.history.slice(-DAYS.length).every((h) => ["S", "A", "B"].includes(h.grade))) award("perfect_week");
   if (!s.worked) award("skip_day");
+  game.story.skips = s.worked ? 0 : (game.story.skips || 0) + 1;
+  if (game.story.skips >= 2) { triggerEnding("lazy"); return; }
   emit("shiftEnd", s.report);
   save();
 }
@@ -158,7 +160,7 @@ function makeNote(src) {
     asked: false, triage: { cat: null, sev: null },
     calm: rnd(22, 40), chat: [{ who: "person", text: fill(src.text, partner) }],
     state: "Flying", landAt: game.clock + sec(PIGEON_SECONDS), arrived: game.clock, due: null, total: null, l2At: null, l2Mode: null, options: [],
-    resolution: null, points: 0, story: !!src.story
+    resolution: null, points: 0, story: !!src.story, emergency: !!src.emergency
   };
   game.notes.push(n);
   emit("arrive", n);
@@ -182,7 +184,7 @@ function pigeonNoteDue() {
 function deliverPigeonNote() {
   const p = game.story.pigeon, a = PIGEON_NOTE.attempts[p.refusals];
   p.lastDay = game.day;
-  makeNote({ special: "pigeon", type: "pigeon", cat: "talk", sev: 2, story: true, from: "Unknown Pigeon", place: "The Coop", title: a.title, text: a.text });
+  makeNote({ special: "pigeon", emergency: true, type: "pigeon", cat: "talk", sev: 1, story: true, from: "Unknown Pigeon", place: "The Coop", title: a.title, text: a.text });
 }
 
 /* ---------- working a LoveNote ---------- */
@@ -337,6 +339,17 @@ function deliverMail(m) {
   emit("mail", mail);
   return mail;
 }
+function deliverQueued() { // deliver waiting mail right away (used when the day isn't running)
+  game.queue.filter((q) => q.at <= game.clock && !q.ending).forEach((q) => deliverMail(q.mail));
+  game.queue = game.queue.filter((q) => q.at > game.clock || q.ending);
+}
+function devMail() {
+  if (game.story.devMail) return;
+  game.story.devMail = true;
+  const m = vpnActive() ? DEV_MAIL.vpn : DEV_MAIL.noVpn;
+  deliverMail({ party: "dev", kind: "dev", from: PARTIES.dev.name, subject: m.subject, body: m.body });
+  save();
+}
 function queueMail(delay, mail, ending) { game.queue.push({ at: game.clock + delay, mail, ending: ending || null }); }
 
 function mailReplies(m) { return m.replies && m.replies.length ? m.replies : DEFAULT_REPLIES; }
@@ -349,7 +362,13 @@ function replyMail(key, idx) {
   const list = m && mailReplies(m);
   if (!m || m.replied != null || !list[idx]) return;
   m.replied = idx;
-  addSent({ to: m.from, toAddr: fromAddress(m), subject: "Re: " + m.subject, body: list[idx].text, quote: m });
+  addSent({ to: m.from, toAddr: m.party === "dev" ? "" : fromAddress(m), subject: "Re: " + m.subject, body: list[idx].text, quote: m });
+  if (m.party === "dev") { // the developer doesn't exist, so the reply bounces
+    const b = DEV_MAIL.bounce;
+    queueMail(sec(3), { party: "other", kind: "random", from: b.from, address: "mailer-daemon@noflight.mail", subject: b.subject + "Re: " + m.subject, body: b.body });
+    if (!game.shift || game.shift.status !== "running") { game.queue.forEach((q) => { if (!q.ending) q.at = 0; }); deliverQueued(); }
+    save(); return;
+  }
   const a = list[idx].answer;
   if (a) queueMail(sec(12), { party: m.party, kind: m.kind === "sus" ? "normal" : m.kind, from: m.from, subject: a.subject, body: a.body });
   save();
@@ -365,13 +384,25 @@ function canForwardTo(party) {
 function forwardMail(key, party) {
   const m = game.mails.find((x) => x.key === key);
   if (!m || !canForwardTo(party) || m.fwd.includes(party) || game.ending) return "nope";
+  if (m.party === "dev") { // the developer's "wrong mail": just a funny reply, no effect on the story
+    m.fwd.push(party);
+    addSent({ to: PARTIES[party].name, toAddr: PARTIES[party].address, subject: "Fwd: " + m.subject, body: "", quote: m, forward: true });
+    queueMail(sec(8), { party, kind: party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon", from: PARTIES[party].name, subject: "Re: Fwd: " + m.subject, body: DEV_MAIL.forward[party] });
+    if (!game.shift || game.shift.status !== "running") { game.queue.forEach((q) => { q.at = 0; }); deliverQueued(); }
+    save(); return "ok";
+  }
   m.fwd.push(party);
   addSent({ to: PARTIES[party].name, toAddr: PARTIES[party].address, subject: "Fwd: " + m.subject, body: "", quote: m, forward: true });
   const r = FORWARD[party][m.kind] || FORWARD[party].random;
   const st = game.story.stats;
   st[r.effect]++;
   if (r.effect === "evidence") award("first_evidence");
-  if (r.effect === "loyal") award("snitch");
+  if (r.effect === "loyal" && st.loyal >= 3) award("snitch");
+  if (["goddess", "angel", "pigeons"].includes(m.party) && m.party !== party) {
+    const tea = game.story.tea || (game.story.tea = {});
+    tea[m.party + ">" + party] = 1;
+    if (Object.keys(tea).length >= 6) award("tea");
+  }
   const from = PARTIES[party].name, kind = party === "goddess" ? "normal" : party === "angel" ? "angel" : "pigeon";
   let subject = "Re: Fwd: " + m.subject, body = r.body, ending = null;
   // spam: up to the daily limit is allowed. 4th = warning, 5th = FINAL WARNING, 6th = Clipped Wings.
@@ -418,12 +449,12 @@ function advance(delta) {
     if (n.state === "Flying" && game.clock >= n.landAt) { n.state = "New"; emit("landed", n); changed = true; return; }
     if (n.special) return;
     if (n.state === "Pending" && game.clock >= n.due) {
-      n.chat.push({ who: "person", text: "Too late. My heart is broken. 💔" });
-      finish(n, "broken"); changed = true;
+      if (!useWing(n)) { n.chat.push({ who: "person", text: "Too late. My heart is broken. 💔" }); finish(n, "broken"); }
+      changed = true;
     } else if (n.state === "Escalated" && game.clock >= n.l2At) {
       if (n.l2Mode === "fulfil") { n.chat.push({ who: "l2", text: pick(L2_LINES.fulfilled) }); finish(n, "fulfilled"); }
       else if (Math.random() < L2_SUCCESS) { n.chat.push({ who: "l2", text: pick(L2_LINES.good) }); finish(n, "l2mended"); }
-      else { n.chat.push({ who: "l2", text: pick(L2_LINES.bad) }); finish(n, "broken"); }
+      else { n.chat.push({ who: "l2", text: pick(L2_LINES.bad) }); if (!useWing(n)) finish(n, "broken"); }
       changed = true;
     }
   });
@@ -452,12 +483,33 @@ function poofPigeon(id) {
 /* ---------- Cupid Shop ---------- */
 function buy(id) {
   const it = SHOP_ITEMS.find((x) => x.id === id);
-  if (!it || game.owned[id] || game.coins < it.price) return false;
-  game.coins -= it.price; game.owned[id] = true;
+  if (!it || (game.owned[id] && !it.consumable) || game.coins < it.price) return false;
+  game.coins -= it.price; game.owned[id] = it.consumable ? (game.owned[id] || 0) + 1 : true;
+  game.bought = game.bought || {}; game.bought[id] = true;
+  if (SHOP_ITEMS.filter((x) => x.id).every((x) => game.bought[x.id])) award("all_items");
   if (id === "vpn") award("vpn");
   save();
   return true;
 }
+// Spare Wing: turns a LoveNote that's about to break into a success
+function useWing(n) {
+  if (!(game.owned.wing > 0)) return false;
+  game.owned.wing--;
+  n.chat.push({ who: "l2", text: "🪽 A spare wing swoops in! An extra helper sorted it out for you. Heart saved." });
+  finish(n, "wingsaved");
+  emit("wing", n);
+  return true;
+}
+
+/* ---------- Wallpapers (saved with the trophies, so they stay) ---------- */
+function claimGoodie(id) {
+  if (trophies.wallpapers[id]) return false;
+  trophies.wallpapers[id] = 1; saveTrophies();
+  if (WALLPAPERS.filter((w) => w.css).every((w) => trophies.wallpapers[w.id])) award("wp_all");
+  return true;
+}
+function setWallpaper(id) { if (id === "default" || trophies.wallpapers[id]) { trophies.wallpaper = id; saveTrophies(); } }
+
 function vpnActive() { return !!(game.owned.vpn && game.vpnOn); }
 function findVpnPage(q) { const s = q.toLowerCase().trim(); return VPN_PAGES.find((p) => p.keys.some((k) => s === k || s.includes(k))); }
 
